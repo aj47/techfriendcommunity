@@ -1,0 +1,37 @@
+{
+  "name": "techfriendcommunity",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@agentmail/convex": "^0.1.0",
+    "@convex-dev/auth": "^0.0.95",
+    "@convex-dev/rate-limiter": "^0.3.2",
+    "@firecrawl/firecrawl-convex": "^0.1.1",
+    "convex": "^1.45.0",
+    "convex-helpers": "^0.1.123",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.1.0",
+    "better-sqlite3": "^13.0.3",
+    "oxlint": "^1.79.0",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.12",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.2"
+  }
+}
