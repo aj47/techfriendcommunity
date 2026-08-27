@@ -47,3 +47,24 @@ export const post = internalAction({
     }
   },
 });
+
+// Weekly flavor: announce last week's top members in the configured channel.
+export const announceWeekly = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const slug = process.env.ANNOUNCE_CHANNEL_SLUG;
+    if (!slug) return;
+    const info = await ctx.runQuery(internal.points.lastWeekTop, { slug, limit: 5 });
+    if (!info || info.rows.length === 0 || !info.webhookUrl) return;
+    const lines = info.rows.map((r: { name: string; points: number }, i: number) => `${["🥇", "🥈", "🥉", "4.", "5."][i]} ${r.name} — ${r.points} pts`);
+    await fetch(info.webhookUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        username: "techfriend community",
+        content: `**Top members for ${info.weekKey}**\n${lines.join("\n")}\n\nEarn points by posting on Discord, the web, or by email: ${process.env.SITE_URL ?? ""}`,
+        allowed_mentions: { parse: [] },
+      }),
+    });
+  },
+});

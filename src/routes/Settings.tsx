@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { api } from "../../convex/_generated/api";
+import DigestSection from "../components/DigestSection";
 
 export default function Settings() {
   const { isAuthenticated } = useConvexAuth();
@@ -65,10 +66,7 @@ export default function Settings() {
         )}
       </section>
 
-      <section className="space-y-2">
-        <h2 className="font-semibold">Email digests</h2>
-        <p className="text-sm text-zinc-500">Coming next: subscribe to a channel and reply to the digest email to post.</p>
-      </section>
+      <DigestSection />
     </div>
   );
 }

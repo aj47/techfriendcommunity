@@ -10,11 +10,14 @@
 
 import type * as auth from "../auth.js";
 import type * as channels from "../channels.js";
+import type * as crons from "../crons.js";
 import type * as discordIngest from "../discordIngest.js";
 import type * as discordOut from "../discordOut.js";
+import type * as email from "../email.js";
 import type * as http from "../http.js";
 import type * as lib_rateLimits from "../lib/rateLimits.js";
 import type * as lib_requireUser from "../lib/requireUser.js";
+import type * as lib_sanitizeEmailReply from "../lib/sanitizeEmailReply.js";
 import type * as lib_slug from "../lib/slug.js";
 import type * as lib_urls from "../lib/urls.js";
 import type * as lib_weekKey from "../lib/weekKey.js";
@@ -32,11 +35,14 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   channels: typeof channels;
+  crons: typeof crons;
   discordIngest: typeof discordIngest;
   discordOut: typeof discordOut;
+  email: typeof email;
   http: typeof http;
   "lib/rateLimits": typeof lib_rateLimits;
   "lib/requireUser": typeof lib_requireUser;
+  "lib/sanitizeEmailReply": typeof lib_sanitizeEmailReply;
   "lib/slug": typeof lib_slug;
   "lib/urls": typeof lib_urls;
   "lib/weekKey": typeof lib_weekKey;

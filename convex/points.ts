@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, query, type MutationCtx } from "./_generated/server";
+import { internalMutation, internalQuery, query, type MutationCtx } from "./_generated/server";
 import { weekKey, dayKey } from "./lib/weekKey";
 import type { Id } from "./_generated/dataModel";
 import { publicUser } from "./lib/requireUser";
@@ -109,4 +109,21 @@ export const leaderboard = query({
 export const currentWeek = query({
   args: {},
   handler: async () => weekKey(Date.now()),
+});
+
+export const lastWeekTop = internalQuery({
+  args: { slug: v.string(), limit: v.number() },
+  handler: async (ctx, { slug, limit }) => {
+    const channel = await ctx.db.query("channels").withIndex("by_slug", (q) => q.eq("slug", slug)).unique();
+    if (!channel) return null;
+    const secret = await ctx.db.query("channelSecrets").withIndex("by_channelId", (q) => q.eq("channelId", channel._id)).unique();
+    const wk = weekKey(Date.now() - 7 * 86_400_000);
+    const rows = await ctx.db.query("leaderboard_weekly").withIndex("by_week_points", (q) => q.eq("weekKey", wk)).order("desc").take(limit);
+    const out = [];
+    for (const r of rows) {
+      const u = await ctx.db.get(r.userId);
+      if (u) out.push({ name: u.handle ? `@${u.handle}` : u.displayName ?? "member", points: r.points });
+    }
+    return { weekKey: wk, rows: out, webhookUrl: secret?.webhookUrl ?? null };
+  },
 });

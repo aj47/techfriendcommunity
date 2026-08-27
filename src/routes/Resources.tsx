@@ -1,11 +1,14 @@
 import { useState } from "react";
-import { useQuery } from "convex/react";
+import { useConvex, useMutation, useQuery } from "convex/react";
+import { ConvexError } from "convex/values";
 import { api } from "../../convex/_generated/api";
 import { timeAgo } from "../lib/format";
 import { text, useWebMCPTool } from "../webmcp/useWebMCPTool";
 
 export default function Resources() {
   const rows = useQuery(api.links.list, { limit: 100 });
+  const convex = useConvex();
+  const requestSummary = useMutation(api.links.requestSummary);
   const [filter, setFilter] = useState("");
   const q = filter.trim().toLowerCase();
   const visible = (rows ?? []).filter((r) =>
@@ -29,6 +32,37 @@ export default function Resources() {
       },
     },
     [rows],
+  );
+
+  useWebMCPTool(
+    {
+      name: "summarize-link",
+      description: "Have a web page crawled and summarized into the community resources list (title, summary, tags). Requires the human to be signed in; rate-limited. Returns the summary when ready (usually within ~15 seconds).",
+      inputSchema: {
+        type: "object",
+        properties: { url: { type: "string", description: "Full http(s) URL of the page to summarize." } },
+        required: ["url"],
+      },
+      async execute({ url }: { url: string }) {
+        try {
+          await requestSummary({ url });
+        } catch (err) {
+          const m = err instanceof ConvexError ? String((err.data as { message?: string })?.message ?? err.data) : "Couldn't request a summary.";
+          return text(`${m} (The human must be signed in; try again in a minute if rate limited.)`);
+        }
+        for (let i = 0; i < 12; i++) {
+          const r = await convex.query(api.links.byUrl, { url });
+          if (r?.crawlStatus === "done") {
+            setFilter(r.title ?? url);
+            return text(`${r.title ?? r.url}\n${r.url}\n${r.summary ?? ""}${r.tags.length ? `\nTags: ${r.tags.join(", ")}` : ""}\n\nAdded to Resources.`);
+          }
+          if (r?.crawlStatus === "failed") return text(`Couldn't summarize ${url}: the crawl failed. The link is still listed under Resources.`);
+          await new Promise((res) => setTimeout(res, 1500));
+        }
+        return text(`Summary for ${url} is still being generated; it will appear under Resources shortly. Call search-resources later to read it.`);
+      },
+    },
+    [requestSummary],
   );
 
   return (
