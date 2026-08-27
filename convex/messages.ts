@@ -204,7 +204,7 @@ export const ingest = internalMutation({
             if (!ev.isBot && !ev.webhookId) {
               await awardPoints(ctx, { userId, kind: "discord_message", dedupeKey: `msg:${ev.id}`, at });
               await awardDailyActive(ctx, userId, at);
-              if (urls.length) await enqueueLinks(ctx, { urls, messageId, channelId: channel._id, userId, at });
+              if (urls.length && !ev.skipLinks) await enqueueLinks(ctx, { urls, messageId, channelId: channel._id, userId, at });
             }
             bump("message.create");
             break;
