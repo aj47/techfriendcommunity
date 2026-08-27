@@ -8,11 +8,11 @@
 - **Frontend:** not deployed
 - **Convex deployment:** not deployed
 - **Components:** @firecrawl/firecrawl-convex, @agentmail/convex, @convex-dev/rate-limiter
-- **Convex features:** schema, tables, indexes, full-text search, queries, mutations, actions, HTTP actions, scheduled functions, realtime queries, paginated queries
+- **Convex features:** schema, tables, indexes, full-text search, queries, mutations, actions, HTTP actions, scheduled functions, crons, realtime queries, paginated queries
 - **Auth:** Convex Auth
 - **AI models:** none
 - **Started:** 2026-08-27T02:54:21Z
-- **Last updated:** 2026-08-27T03:08:27Z
+- **Last updated:** 2026-08-27T03:13:34Z
 
 ## Log
 
@@ -46,3 +46,18 @@ queries, mutations, actions, HTTP actions, scheduled functions, paginated and re
 queries, full-text search, rate-limiter component, Convex Auth (`convex/messages.ts`,
 `convex/points.ts`, `convex/discordOut.ts`, `convex/discordIngest.ts`, `convex/users.ts`,
 `src/webmcp/*`, `src/components/Composer.tsx`, `scripts/backfill.ts`).
+
+### 2026-08-27 - c7ed9d4
+Wired both sponsor components into real product paths. Firecrawl: every URL shared in a
+message (Discord, web, or email) becomes a pending resource; a scheduled action scrapes
+the page with a JSON extraction prompt (title, summary, site, tags) and the Resources
+page updates live from "crawling…" to summarized; failures (credits, rate limits) are
+recorded, and a rate-limited `summarize-link` request lets signed-in users and agents add
+pages on demand. AgentMail: users subscribe to daily/weekly channel digests, a cron sends
+them from the app inbox, and replies are routed back by sender + `[#channel]` subject tag,
+sanitized, posted to Discord via the channel webhook, and rewarded with points. Added a
+weekly cron that announces top members in Discord and a declarative WebMCP form tool
+(`subscribe-to-digest`) that the browser asks the human to confirm. Convex features:
+crons, actions, scheduled functions, HTTP actions, Firecrawl and AgentMail components
+(`convex/links.ts`, `convex/email.ts`, `convex/crons.ts`, `convex/http.ts`,
+`src/components/DigestSection.tsx`, `src/routes/Resources.tsx`).
