@@ -32,9 +32,26 @@ extension (dated within the submission window in that repo's history) is part of
 
 ```bash
 npm install
-npx convex dev        # starts Convex dev deployment + codegen
-npm run dev           # Vite dev server
+npx convex dev        # dev deployment + codegen (or CONVEX_AGENT_MODE=anonymous npx convex dev for a no-account local backend)
+npm run dev           # Vite on 0.0.0.0:5173
 ```
+
+## Setup checklist (production)
+
+1. **Convex**: `npx convex login`, then `npx convex dev --once --configure new` to create the project. Static hosting: `npx convex deploy`.
+2. **Backend env** (`npx convex env set NAME value`):
+   - `BRIDGE_SECRET` — long random string; the Discord bot bridge sends it as a bearer token.
+   - `FIRECRAWL_API_KEY` (+ optional `FIRECRAWL_WEBHOOK_SECRET`) — link enrichment.
+   - `AGENTMAIL_API_KEY`, `AGENTMAIL_WEBHOOK_SECRET`, `AGENTMAIL_INBOX_ID` — create an inbox in AgentMail, register the webhook `https://<deployment>.convex.site/agentmail/webhook`.
+   - `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` — GitHub OAuth app with callback `https://<deployment>.convex.site/api/auth/callback/github`.
+   - `AUTH_RESEND_KEY` — Resend key for magic-link sign-in.
+   - `SITE_URL` — public site URL (used in emails and auth redirects).
+   - `ANNOUNCE_CHANNEL_SLUG` — optional; channel for the weekly leaderboard post.
+   - Convex Auth also needs `JWT_PRIVATE_KEY` / `JWKS`: run `npx @convex-dev/auth` once to generate them.
+3. **Discord bridge** (in [techfren-discord-bot](https://github.com/aj47/techfren-discord-bot/tree/bridge/techfriendcommunity), see its `BRIDGE.md`): set `BRIDGE_ENABLED=true`, `CONVEX_INGEST_URL=https://<deployment>.convex.site`, `BRIDGE_SECRET`, and give the bot **Manage Webhooks**. Before the main bot is redeployed, `python run_bridge_standalone.py` mirrors from anywhere with its own token.
+4. **History backfill** (one time, from a discrawl SQLite export):
+   `npx tsx scripts/backfill.ts --db discrawl.sqlite --url https://<deployment>.convex.site --secret "$BRIDGE_SECRET" [--since 2025-01-01]`
+5. **WebMCP check**: open the site in ChatGPT's in-app browser or Chrome 149+ (`chrome://flags/#enable-webmcp-testing`) and run `(await document.modelContext.getTools()).map(t => t.name)` in the console.
 
 ## License
 
