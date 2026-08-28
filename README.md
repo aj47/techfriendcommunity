@@ -51,6 +51,13 @@ npm run dev           # Vite on 0.0.0.0:5173
 3. **Discord bridge** (in [techfren-discord-bot](https://github.com/aj47/techfren-discord-bot/tree/bridge/techfriendcommunity), see its `BRIDGE.md`): set `BRIDGE_ENABLED=true`, `CONVEX_INGEST_URL=https://<deployment>.convex.site`, `BRIDGE_SECRET`, and give the bot **Manage Webhooks**. Before the main bot is redeployed, `python run_bridge_standalone.py` mirrors from anywhere with its own token.
 4. **History backfill** (one time, from a discrawl SQLite export):
    `npx tsx scripts/backfill.ts --db discrawl.sqlite --url https://<deployment>.convex.site --secret "$BRIDGE_SECRET" [--since 2025-01-01]`
+4b. **Deploy the web app** (there is no separate frontend host — it's served by Convex itself):
+   ```bash
+   VITE_CONVEX_URL=https://<prod-deployment>.convex.cloud VITE_CONVEX_SITE_URL=https://<prod-deployment>.convex.site npm run build
+   node scripts/gen-static-assets.mjs
+   npx convex deploy -y
+   ```
+   `convex/staticSite.ts` serves `dist/` (embedded as base64 in `convex/staticAssets.generated.ts`) from an httpAction registered after the API routes, so the whole product — UI and backend — lives at one `*.convex.site` URL.
 5. **WebMCP check**: open the site in ChatGPT's in-app browser or Chrome 149+ (`chrome://flags/#enable-webmcp-testing`) and run `(await document.modelContext.getTools()).map(t => t.name)` in the console.
 
 ## License

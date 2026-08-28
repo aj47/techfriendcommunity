@@ -3,16 +3,16 @@
 - **Project:** techfriendcommunity
 - **Event:** Convex All Gas hackathon
 - **What it does:** Lets people browse, post in, and get email digests from the techfren Discord community without a Discord account, with a points leaderboard and WebMCP tools for browser agents.
-- **Live app:** not deployed
+- **Live app:** https://hushed-crocodile-237.convex.site
 - **Repo:** https://github.com/aj47/techfriendcommunity
-- **Frontend:** not deployed
-- **Convex deployment:** not deployed
+- **Frontend:** Convex static hosting (custom httpAction serving embedded dist/ assets)
+- **Convex deployment:** https://hushed-crocodile-237.convex.cloud
 - **Components:** @firecrawl/firecrawl-convex, @agentmail/convex, @convex-dev/rate-limiter
 - **Convex features:** schema, tables, indexes, full-text search, queries, mutations, actions, HTTP actions, scheduled functions, crons, realtime queries, paginated queries
 - **Auth:** Convex Auth
 - **AI models:** none
 - **Started:** 2026-08-27T02:54:21Z
-- **Last updated:** 2026-08-27T03:13:34Z
+- **Last updated:** 2026-08-28T19:59:50Z
 
 ## Log
 
@@ -61,3 +61,20 @@ weekly cron that announces top members in Discord and a declarative WebMCP form 
 crons, actions, scheduled functions, HTTP actions, Firecrawl and AgentMail components
 (`convex/links.ts`, `convex/email.ts`, `convex/crons.ts`, `convex/http.ts`,
 `src/components/DigestSection.tsx`, `src/routes/Resources.tsx`).
+
+### 2026-08-28 - 10f4450
+Deployed to a real Convex project (team hi-82714) with dev and production
+deployments, all three components (Firecrawl, AgentMail, rate-limiter) installed
+on both. Since the installed Convex CLI has no built-in static-hosting command,
+built a small pipeline instead: `npm run build` produces `dist/`,
+`scripts/gen-static-assets.mjs` embeds it as base64 in a generated module, and
+a catch-all httpAction (`convex/staticSite.ts`) serves it — exact asset paths
+as-is, everything else (client-side routes) falling back to `index.html` for
+react-router — registered after Convex Auth, `/discord/ingest`, and
+`/agentmail/webhook` so it never shadows the API. Verified on the live
+production URL: the served bundle points at itself (not the dev deployment),
+`/leaderboard` and `/channels/:slug` return the app shell, and
+`/discord/ingest` still returns 401/works only with the correct bearer secret.
+Firecrawl and AgentMail keys are placeholders pending real credentials.
+Convex features: HTTP actions serving the frontend, production deployment
+(`convex/staticSite.ts`, `convex/http.ts`, `scripts/gen-static-assets.mjs`).
