@@ -12,7 +12,7 @@
 - **Auth:** Convex Auth
 - **AI models:** none
 - **Started:** 2026-08-27T02:54:21Z
-- **Last updated:** 2026-08-28T21:11:15Z
+- **Last updated:** 2026-08-28T22:39:33Z
 
 ## Log
 
@@ -133,3 +133,26 @@ an attachment now only enqueues the real link. FIRECRAWL_API_KEY is still a
 placeholder on both deployments, so no resource has actually crawled
 successfully yet — a real key is the remaining blocker for the feature to
 produce summaries (`convex/lib/urls.ts`, `convex/links.ts`).
+
+### 2026-08-28 - bb3a196
+Diagnosed and fixed a real Discord-linking failure via production logs: AJ's
+own `!link` attempt was received correctly by the bridge, matched the code,
+and started the merge — then `linkDiscordByCode` threw "Too many reads in a
+single function execution (limit: 4096)". The account being linked (a
+long-time, heavily backfilled member) had more historical messages than one
+Convex mutation's read/write budget, and the reassignment ran as a single
+synchronous loop. Fixed by clearing the shadow's Discord id and completing
+the link immediately (new messages from that id now attach straight to the
+target account), while a new paginated internalMutation walks the shadow's
+message history in batches of 200 and deletes the shadow once done.
+Verified on dev with a real create-shadow / reassign / verify-deleted cycle
+before deploying to production.
+
+Also set the real Convex Auth JWT keypair (none existed — sign-in was
+completely unrouted before this), SITE_URL, and GitHub OAuth credentials on
+production; verified the full pre-consent OAuth pipeline via the real
+`signIn` action (correct client_id, exact redirect_uri, valid PKCE), and a
+real end-to-end GitHub sign-in has since been completed live. Real
+FIRECRAWL_API_KEY is also set on both deployments, verified against a real
+page crawl. Convex features: internalMutation with cursor-based pagination
+for a background merge, Convex Auth (GitHub provider) (`convex/users.ts`).
