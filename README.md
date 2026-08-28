@@ -58,7 +58,8 @@ npm run dev           # Vite on 0.0.0.0:5173
    npx convex deploy -y
    ```
    `convex/staticSite.ts` serves `dist/` (embedded as base64 in `convex/staticAssets.generated.ts`) from an httpAction registered after the API routes, so the whole product — UI and backend — lives at one `*.convex.site` URL.
-5. **WebMCP check**: open the site in ChatGPT's in-app browser or Chrome 149+ (`chrome://flags/#enable-webmcp-testing`) and run `(await document.modelContext.getTools()).map(t => t.name)` in the console.
+5. **Branded domain** (`infra/cf-proxy/`): Convex custom domains are a Pro feature, so techfriendcommunity.com is kept by a Cloudflare Worker that reverse-proxies the zone to the `*.convex.site` origin (apex → www). Deploy it with `cd infra/cf-proxy && wrangler deploy`; change `ORIGIN` in `src/index.js` if the deployment moves.
+6. **WebMCP check**: open the site in ChatGPT's in-app browser or Chrome 149+ (`chrome://flags/#enable-webmcp-testing`) and run `(await document.modelContext.getTools()).map(t => t.name)` in the console.
 
 ## License
 
