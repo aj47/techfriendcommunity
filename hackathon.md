@@ -12,7 +12,7 @@
 - **Auth:** Convex Auth
 - **AI models:** none
 - **Started:** 2026-08-27T02:54:21Z
-- **Last updated:** 2026-08-28T22:39:33Z
+- **Last updated:** 2026-08-28T23:08:51Z
 
 ## Log
 
@@ -156,3 +156,17 @@ real end-to-end GitHub sign-in has since been completed live. Real
 FIRECRAWL_API_KEY is also set on both deployments, verified against a real
 page crawl. Convex features: internalMutation with cursor-based pagination
 for a background merge, Convex Auth (GitHub provider) (`convex/users.ts`).
+
+### 2026-08-28 - (env only, no code change)
+Migrated the public-facing domain to https://www.techfriendcommunity.com (DNS
+already correctly pointed at the Convex deployment via Cloudflare, apex 308s
+to www). Sign-in was landing users on the old hushed-crocodile-237.convex.site
+domain after GitHub auth instead of staying on the new one — a real bug, not
+cosmetic, since it left the session cookie scoped to the wrong host.
+Traced to @convex-dev/auth building its OAuth redirect_uri from an env var
+rather than the request's actual host. Set CUSTOM_AUTH_SITE_URL and SITE_URL
+to the new domain on production; verified via the real signIn action that
+the whole pre-consent chain (initial redirect, GitHub authorize URL,
+redirect_uri) now correctly targets www.techfriendcommunity.com throughout.
+Remaining piece: the new callback URL needs registering on the GitHub OAuth
+app (asked the bot-side session to add it, since they manage that app).
