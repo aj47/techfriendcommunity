@@ -12,7 +12,7 @@
 - **Auth:** Convex Auth
 - **AI models:** none
 - **Started:** 2026-08-27T02:54:21Z
-- **Last updated:** 2026-08-28T21:06:49Z
+- **Last updated:** 2026-08-28T21:11:15Z
 
 ## Log
 
@@ -118,3 +118,18 @@ pass clears zero, then dropped `points_events`, `leaderboard_weekly`, and
 `weekKey.ts` helper. Production leaderboard (98 real members, matching the
 bot's own `user_points` table) was untouched throughout every deploy in this
 sequence.
+
+### 2026-08-28 - e62d1a2
+Fixed /resources capturing Discord attachment URLs as if they were shared
+links: extractUrls() finds every http(s) URL in a message including its
+attachments, and enqueueLinks treated all of them as resources, so any
+screenshot someone posted became a page Firecrawl tried to crawl and summarize.
+All 3 entries in production were Discord CDN URLs, not real links. Added
+isCrawlableResource() excluding Discord's CDN/media hosts and raw
+image/video/audio/archive extensions, applied once in enqueueLinks so it
+covers Discord, web, and email ingest from a single place. Purged the 3
+junk entries from production. Verified: a message with both a real link and
+an attachment now only enqueues the real link. FIRECRAWL_API_KEY is still a
+placeholder on both deployments, so no resource has actually crawled
+successfully yet — a real key is the remaining blocker for the feature to
+produce summaries (`convex/lib/urls.ts`, `convex/links.ts`).
