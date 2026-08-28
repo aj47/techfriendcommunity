@@ -12,7 +12,7 @@
 - **Auth:** Convex Auth
 - **AI models:** none
 - **Started:** 2026-08-27T02:54:21Z
-- **Last updated:** 2026-08-28T20:52:00Z
+- **Last updated:** 2026-08-28T21:06:49Z
 
 ## Log
 
@@ -98,3 +98,23 @@ production: ingest auth intact, a Discord message creates no points_events,
 Convex features: schema migration with staged legacy-table removal, mirror
 sync as an idempotent upsert-and-prune (`convex/points.ts`, `convex/schema.ts`,
 `convex/messages.ts`).
+
+### 2026-08-28 - de53771
+Closed out the leaderboard mirror handoff with the peer session working the
+Discord bot side. Implemented the `complete` flag on `leaderboard.sync`: a
+partial push (the bot's guild read hit its row cap) now upserts without
+pruning, since a row missing from a truncated batch may just be missing from
+the batch, not gone — only a push the bot marks complete deletes stale
+entries. Missing `complete` (an older bot) still prunes as before. Verified
+all three cases on a real push/response cycle.
+
+Also finished the retired-tables cleanup: `purgeLegacy`'s plain `.take(n)`
+never advanced past the same first batch on repeat calls, so `points_events`
+and `leaderboard_weekly` (small tables) cleared fine but `users.pointsAllTime`
+left 381 documents behind, which correctly blocked the schema deploy. Replaced
+it with a cursor-paginated sweep, ran it to completion, verified a second full
+pass clears zero, then dropped `points_events`, `leaderboard_weekly`, and
+`users.pointsAllTime` from the schema for real and removed the dead
+`weekKey.ts` helper. Production leaderboard (98 real members, matching the
+bot's own `user_points` table) was untouched throughout every deploy in this
+sequence.
