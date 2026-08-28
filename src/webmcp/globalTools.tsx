@@ -15,7 +15,7 @@ export function GlobalTools() {
       description: "Get an overview of the techfriend community: the list of channels (with slugs to open them at /channels/<slug>), recent activity, and who is signed in. Call this first to orient yourself.",
       async execute() {
         const list = channels ?? [];
-        const who = me ? `Signed in as ${me.handle ? "@" + me.handle : me.displayName} (${me.pointsAllTime} pts all-time, ${me.pointsThisWeek} this week).` : "Not signed in — the human can browse but must sign in to post.";
+        const who = me ? `Signed in as ${me.handle ? "@" + me.handle : me.displayName} (${me.pointsAllTime} pts on the Discord leaderboard).` : "Not signed in — the human can browse but must sign in to post.";
         if (list.length === 0) return text(`${who}\nNo channels are mirrored yet.`);
         return text(`${who}\nChannels:\n` + list.map((c) => `- #${c.name} (slug: ${c.slug}) — ${c.messageCount} messages, last ${c.lastMessageAt ? timeAgo(c.lastMessageAt) : "n/a"}${c.topic ? `: ${c.topic}` : ""}`).join("\n"));
       },
@@ -56,7 +56,7 @@ export function GlobalTools() {
       description: "Get the signed-in human's profile: handle, points this week and all-time, whether Discord is linked. Explains why posting may be blocked (not signed in, no handle yet).",
       async execute() {
         if (!me) return text("Nobody is signed in. Ask the human to sign in at /signin (GitHub or email link) before posting.");
-        return text(`@${me.handle ?? "(no handle yet — set one at /settings before posting)"} · ${me.displayName}\nPoints: ${me.pointsThisWeek} this week, ${me.pointsAllTime} all-time\nDiscord linked: ${me.discordLinked ? "yes" : "no"}\nDigest subscriptions: ${me.subscriptionCount}`);
+        return text(`@${me.handle ?? "(no handle yet — set one at /settings before posting)"} · ${me.displayName}\nPoints: ${me.pointsAllTime} on the Discord leaderboard\nDiscord linked: ${me.discordLinked ? "yes" : "no"}\nDigest subscriptions: ${me.subscriptionCount}`);
       },
     },
     [me],

@@ -99,7 +99,10 @@ async function send(events: unknown[]) {
       authorId: m.author_id ?? "0",
       authorName: displayName(member, m.author_id ?? undefined),
       authorAvatar: avatarUrl(member),
-      isBot: !!member?.bot,
+      // Backfilled history awards no points: the Discord bot's own points system
+      // is authoritative. The ingest gates all awards behind !isBot, so flagging
+      // backfilled events keeps messages/users/channels but skips scoring.
+      isBot: true,
       webhookId: null,
       content: m.content,
       createdAt: Date.parse(m.created_at),

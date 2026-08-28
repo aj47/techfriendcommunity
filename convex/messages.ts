@@ -6,9 +6,9 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { requireUser } from "./lib/requireUser";
 import { rateLimiter } from "./lib/rateLimits";
 import { extractUrls } from "./lib/urls";
-import { awardDailyActive, awardPoints } from "./points";
 import { ensureShadowUser, linkDiscordByCode } from "./users";
 import { syncChannels, type ChannelSyncInput } from "./channels";
+import { syncMirror } from "./points";
 import { enqueueLinks } from "./links";
 
 const MAX_LEN = 2000;
@@ -114,9 +114,6 @@ export const post = mutation({
     });
     await bumpChannel(ctx, channel._id, now);
     await ctx.scheduler.runAfter(0, internal.discordOut.post, { messageId, attempt: 0 });
-    await awardPoints(ctx, { userId: user._id, kind: "web_message", dedupeKey: `web:${messageId}`, at: now });
-    if (agentAssisted) await awardPoints(ctx, { userId: user._id, kind: "agent_assist", dedupeKey: `agent:${messageId}`, at: now });
-    await awardDailyActive(ctx, user._id, now);
     if (urls.length) await enqueueLinks(ctx, { urls, messageId, channelId: channel._id, userId: user._id, at: now });
     return { messageId };
   },
@@ -154,6 +151,7 @@ export const markFailed = internalMutation({
 //   reaction.add   {messageId, emoji, userId}
 //   channel.sync   {channels: [{id, name, topic?, position, webhookUrl?}]}
 //   link.code      {code, discordUserId, name, avatar?}
+//   leaderboard.sync {rows: [{discordUserId, name, points}]}
 
 type IngestEvent = Record<string, any> & { type: string };
 
@@ -201,10 +199,8 @@ export const ingest = internalMutation({
               createdAt: at,
             });
             await bumpChannel(ctx, channel._id, at);
-            if (!ev.isBot && !ev.webhookId) {
-              await awardPoints(ctx, { userId, kind: "discord_message", dedupeKey: `msg:${ev.id}`, at });
-              await awardDailyActive(ctx, userId, at);
-              if (urls.length && !ev.skipLinks) await enqueueLinks(ctx, { urls, messageId, channelId: channel._id, userId, at });
+            if (!ev.isBot && !ev.webhookId && urls.length && !ev.skipLinks) {
+              await enqueueLinks(ctx, { urls, messageId, channelId: channel._id, userId, at });
             }
             bump("message.create");
             break;
@@ -224,14 +220,14 @@ export const ingest = internalMutation({
             break;
           }
           case "reaction.add": {
-            const m = await ctx.db.query("messages").withIndex("by_discordMessageId", (q) => q.eq("discordMessageId", String(ev.messageId))).unique();
-            if (!m?.authorUserId) { bump("reaction_unknown"); break; }
-            await awardPoints(ctx, {
-              userId: m.authorUserId,
-              kind: "reaction_received",
-              dedupeKey: `react:${ev.messageId}:${ev.emoji}:${ev.userId}`,
-            });
+            // Reactions are scored by the Discord bot, not here. Kept as a
+            // no-op so the bridge's event stream stays stable.
             bump("reaction.add");
+            break;
+          }
+          case "leaderboard.sync": {
+            await syncMirror(ctx, ev.rows ?? []);
+            bump("leaderboard.sync");
             break;
           }
           case "link.code": {

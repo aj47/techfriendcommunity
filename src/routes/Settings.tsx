@@ -47,7 +47,7 @@ export default function Settings() {
             {msg ? <span className="text-sm text-zinc-400">{msg}</span> : null}
           </div>
         </form>
-        <p className="text-sm text-zinc-500">{me.pointsThisWeek} pts this week · {me.pointsAllTime} all time</p>
+        <p className="text-sm text-zinc-500">{me.discordLinked ? `${me.pointsAllTime} pts on the Discord leaderboard` : "Link your Discord account to see your points"}</p>
       </section>
 
       <section className="space-y-2">

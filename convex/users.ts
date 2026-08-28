@@ -2,7 +2,6 @@ import { v, ConvexError } from "convex/values";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { optionalUser, publicUser, requireUser } from "./lib/requireUser";
-import { weekKey } from "./lib/weekKey";
 
 export const me = query({
   args: {},
@@ -13,14 +12,16 @@ export const me = query({
       .query("digest_subscriptions")
       .withIndex("by_user", (q) => q.eq("userId", u._id))
       .collect();
-    const wk = weekKey(Date.now());
-    const weekly = await ctx.db
-      .query("leaderboard_weekly")
-      .withIndex("by_week_user", (q) => q.eq("weekKey", wk).eq("userId", u._id))
-      .unique();
+    // Points are the Discord bot's, looked up by the linked Discord account.
+    const mirrored = u.discordUserId
+      ? await ctx.db
+          .query("leaderboard_mirror")
+          .withIndex("by_discordUserId", (q) => q.eq("discordUserId", u.discordUserId!))
+          .unique()
+      : null;
     return {
       ...publicUser(u),
-      pointsThisWeek: weekly?.points ?? 0,
+      pointsAllTime: mirrored?.points ?? 0,
       discordLinked: !!u.discordUserId,
       subscriptionCount: subs.length,
       needsHandle: !u.handle,
@@ -41,7 +42,6 @@ export const updateProfile = mutation({
       displayName: (displayName?.trim() || user.displayName || user.name || clean).slice(0, 64),
       avatarUrl: user.avatarUrl ?? user.image,
       role: user.role ?? "member",
-      pointsAllTime: user.pointsAllTime ?? 0,
     });
     return { handle: clean };
   },
@@ -69,7 +69,6 @@ export async function ensureShadowUser(
     avatarUrl: args.avatarUrl,
     isShadow: true,
     role: "member",
-    pointsAllTime: 0,
   });
 }
 
@@ -95,19 +94,8 @@ export async function linkDiscordByCode(
     for await (const m of ctx.db.query("messages").withIndex("by_author", (q) => q.eq("authorUserId", shadow._id))) {
       await ctx.db.patch(m._id, { authorUserId: target._id });
     }
-    for await (const e of ctx.db.query("points_events").withIndex("by_user_time", (q) => q.eq("userId", shadow._id))) {
-      await ctx.db.patch(e._id, { userId: target._id });
-    }
-    for await (const w of ctx.db.query("leaderboard_weekly").withIndex("by_week_user")) {
-      if (w.userId !== shadow._id) continue;
-      const mine = await ctx.db
-        .query("leaderboard_weekly")
-        .withIndex("by_week_user", (q) => q.eq("weekKey", w.weekKey).eq("userId", target._id))
-        .unique();
-      if (mine) { await ctx.db.patch(mine._id, { points: mine.points + w.points }); await ctx.db.delete(w._id); }
-      else await ctx.db.patch(w._id, { userId: target._id });
-    }
-    await ctx.db.patch(target._id, { pointsAllTime: (target.pointsAllTime ?? 0) + (shadow.pointsAllTime ?? 0) });
+    // Points need no merging: the mirror is keyed by Discord id, so claiming
+    // the account is enough for the standing to follow it.
     await ctx.db.delete(shadow._id);
   }
   await ctx.db.patch(target._id, {

@@ -7,8 +7,6 @@ import { requireUser } from "./lib/requireUser";
 import { rateLimiter } from "./lib/rateLimits";
 import { extractUrls } from "./lib/urls";
 import { extractEmail, sanitizeEmailReply } from "./lib/sanitizeEmailReply";
-import { awardDailyActive, awardPoints } from "./points";
-import { weekKey } from "./lib/weekKey";
 import { enqueueLinks } from "./links";
 
 // The app's inbox. Digests go out from it; replies come back to it.
@@ -78,13 +76,9 @@ async function buildDigest(ctx: MutationCtx, user: Doc<"users">, channel: Doc<"c
     .take(40);
   const msgs = rows.filter((m) => !m.hiddenAt).reverse();
   if (msgs.length === 0) return null;
-  const wk = weekKey(Date.now());
-  const top = await ctx.db.query("leaderboard_weekly").withIndex("by_week_points", (q) => q.eq("weekKey", wk)).order("desc").take(3);
-  const topLines: string[] = [];
-  for (const [i, t] of top.entries()) {
-    const u = await ctx.db.get(t.userId);
-    if (u) topLines.push(`${i + 1}. ${u.handle ? "@" + u.handle : u.displayName ?? "member"} — ${t.points} pts`);
-  }
+  // Standings come from the Discord bot's leaderboard, mirrored here.
+  const top = await ctx.db.query("leaderboard_mirror").withIndex("by_points").order("desc").take(3);
+  const topLines = top.map((t, i) => `${i + 1}. ${t.name} — ${t.points} pts`);
   const body = [
     `#${channel.name} — ${msgs.length} new message${msgs.length === 1 ? "" : "s"}`,
     "",
@@ -152,10 +146,11 @@ export const onMessageReceived = internalMutation({
 
     const messageId: string = String(message.message_id ?? message.id ?? "");
     const dedupe = `mail:${messageId || `${fromEmail}:${message.timestamp ?? Date.now()}`}`;
-    const already = await ctx.db.query("points_events").withIndex("by_dedupeKey", (q) => q.eq("dedupeKey", dedupe)).unique();
+    const already = await ctx.db.query("processed_emails").withIndex("by_dedupeKey", (q) => q.eq("dedupeKey", dedupe)).unique();
     if (already) return { ok: false, reason: "duplicate" };
 
     const now = Date.now();
+    await ctx.db.insert("processed_emails", { dedupeKey: dedupe, createdAt: now });
     const urls = extractUrls(text);
     const msgId = await ctx.db.insert("messages", {
       channelId: channel._id,
@@ -170,8 +165,6 @@ export const onMessageReceived = internalMutation({
     });
     await ctx.db.patch(channel._id, { messageCount: channel.messageCount + 1, lastMessageAt: now });
     await ctx.scheduler.runAfter(0, internal.discordOut.post, { messageId: msgId, attempt: 0 });
-    await awardPoints(ctx, { userId: user._id, kind: "email_reply", dedupeKey: dedupe, at: now });
-    await awardDailyActive(ctx, user._id, now);
     if (urls.length) await enqueueLinks(ctx, { urls, messageId: msgId, channelId: channel._id, userId: user._id, at: now });
 
     const threadId = String(message.thread_id ?? "");

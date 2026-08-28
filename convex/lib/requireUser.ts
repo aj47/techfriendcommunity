@@ -28,7 +28,6 @@ export function publicUser(u: Doc<"users">) {
     displayName: u.displayName ?? u.name ?? u.handle ?? "member",
     avatarUrl: u.avatarUrl ?? u.image ?? null,
     role: u.role ?? "member",
-    pointsAllTime: u.pointsAllTime ?? 0,
     isShadow: u.isShadow ?? false,
   };
 }

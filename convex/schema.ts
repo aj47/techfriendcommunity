@@ -35,12 +35,10 @@ export default defineSchema({
     // Backfilled/mirrored author with no claimed account yet.
     isShadow: v.optional(v.boolean()),
     role: v.optional(roleValidator),
-    pointsAllTime: v.optional(v.number()),
   })
     .index("email", ["email"])
     .index("by_handle", ["handle"])
-    .index("by_discordUserId", ["discordUserId"])
-    .index("by_pointsAllTime", ["pointsAllTime"]),
+    .index("by_discordUserId", ["discordUserId"]),
 
   channels: defineTable({
     discordChannelId: v.string(),
@@ -91,26 +89,24 @@ export default defineSchema({
       filterFields: ["channelId"],
     }),
 
-  // Append-only ledger. All point awards flow through points.award.
-  points_events: defineTable({
-    userId: v.id("users"),
-    kind: v.string(),
+  // Read-only mirror of the Discord bot's user_points table, pushed by the
+  // bridge. The bot's LLM-judged points are the community's only scoring
+  // system; nothing here computes or awards points.
+  leaderboard_mirror: defineTable({
+    discordUserId: v.string(),
+    name: v.string(),
     points: v.number(),
-    dedupeKey: v.string(),
-    weekKey: v.string(),
-    meta: v.optional(v.any()),
-    createdAt: v.number(),
+    updatedAt: v.number(),
   })
-    .index("by_dedupeKey", ["dedupeKey"])
-    .index("by_user_time", ["userId", "createdAt"]),
+    .index("by_discordUserId", ["discordUserId"])
+    .index("by_points", ["points"]),
 
-  leaderboard_weekly: defineTable({
-    weekKey: v.string(),
-    userId: v.id("users"),
-    points: v.number(),
-  })
-    .index("by_week_points", ["weekKey", "points"])
-    .index("by_week_user", ["weekKey", "userId"]),
+  // Idempotency for inbound AgentMail replies. Previously piggybacked on the
+  // points ledger; it is bookkeeping, not scoring, so it gets its own table.
+  processed_emails: defineTable({
+    dedupeKey: v.string(),
+    createdAt: v.number(),
+  }).index("by_dedupeKey", ["dedupeKey"]),
 
   link_resources: defineTable({
     url: v.string(),

@@ -6,7 +6,6 @@ import type { Id } from "./_generated/dataModel";
 import { normalizeUrl } from "./lib/urls";
 import { requireUser } from "./lib/requireUser";
 import { rateLimiter } from "./lib/rateLimits";
-import { awardPoints } from "./points";
 
 const firecrawl = new FirecrawlClient(components.firecrawl);
 
@@ -118,7 +117,6 @@ export const finish = internalMutation({
       tags: tags.slice(0, 6).map((t) => t.toLowerCase().slice(0, 30)), crawlStatus: "done", failReason: undefined,
     });
     if (r.sharedByUserId) {
-      await awardPoints(ctx, { userId: r.sharedByUserId, kind: "link_shared", dedupeKey: `link:${resourceId}`, at: r.createdAt });
     }
   },
 });
