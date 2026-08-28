@@ -116,8 +116,6 @@ export const finish = internalMutation({
       title: title?.slice(0, 200), summary: summary?.slice(0, 1500), siteName: siteName?.slice(0, 100),
       tags: tags.slice(0, 6).map((t) => t.toLowerCase().slice(0, 30)), crawlStatus: "done", failReason: undefined,
     });
-    if (r.sharedByUserId) {
-    }
   },
 });
 

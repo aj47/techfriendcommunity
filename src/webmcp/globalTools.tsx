@@ -53,7 +53,7 @@ export function GlobalTools() {
   useWebMCPTool(
     {
       name: "get-my-profile",
-      description: "Get the signed-in human's profile: handle, points this week and all-time, whether Discord is linked. Explains why posting may be blocked (not signed in, no handle yet).",
+      description: "Get the signed-in human's profile: handle, standing on the Discord bot's leaderboard, whether Discord is linked. Explains why posting may be blocked (not signed in, no handle yet).",
       async execute() {
         if (!me) return text("Nobody is signed in. Ask the human to sign in at /signin (GitHub or email link) before posting.");
         return text(`@${me.handle ?? "(no handle yet — set one at /settings before posting)"} · ${me.displayName}\nPoints: ${me.pointsAllTime} on the Discord leaderboard\nDiscord linked: ${me.discordLinked ? "yes" : "no"}\nDigest subscriptions: ${me.subscriptionCount}`);
