@@ -1,0 +1,8 @@
+name = "techfriendcommunity-proxy"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+routes = [
+  { pattern = "www.techfriendcommunity.com/*", zone_name = "techfriendcommunity.com" },
+  { pattern = "techfriendcommunity.com/*", zone_name = "techfriendcommunity.com" },
+]
