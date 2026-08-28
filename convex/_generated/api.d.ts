@@ -20,7 +20,6 @@ import type * as lib_requireUser from "../lib/requireUser.js";
 import type * as lib_sanitizeEmailReply from "../lib/sanitizeEmailReply.js";
 import type * as lib_slug from "../lib/slug.js";
 import type * as lib_urls from "../lib/urls.js";
-import type * as lib_weekKey from "../lib/weekKey.js";
 import type * as links from "../links.js";
 import type * as messages from "../messages.js";
 import type * as points from "../points.js";
@@ -46,7 +45,6 @@ declare const fullApi: ApiFromModules<{
   "lib/sanitizeEmailReply": typeof lib_sanitizeEmailReply;
   "lib/slug": typeof lib_slug;
   "lib/urls": typeof lib_urls;
-  "lib/weekKey": typeof lib_weekKey;
   links: typeof links;
   messages: typeof messages;
   points: typeof points;
