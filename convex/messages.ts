@@ -151,7 +151,7 @@ export const markFailed = internalMutation({
 //   reaction.add   {messageId, emoji, userId}
 //   channel.sync   {channels: [{id, name, topic?, position, webhookUrl?}]}
 //   link.code      {code, discordUserId, name, avatar?}
-//   leaderboard.sync {rows: [{discordUserId, name, points}]}
+//   leaderboard.sync {rows: [{discordUserId, name, points}], complete?: boolean}
 
 type IngestEvent = Record<string, any> & { type: string };
 
@@ -226,7 +226,7 @@ export const ingest = internalMutation({
             break;
           }
           case "leaderboard.sync": {
-            await syncMirror(ctx, ev.rows ?? []);
+            await syncMirror(ctx, ev.rows ?? [], ev.complete);
             bump("leaderboard.sync");
             break;
           }

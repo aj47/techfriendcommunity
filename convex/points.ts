@@ -10,20 +10,21 @@ import { publicUser } from "./lib/requireUser";
 // read-only. There is deliberately no awardPoints() — if you find yourself
 // wanting one, the award belongs in the bot, not here.
 
-// Replace the mirror wholesale with the bot's current standings. Called from
-// the ingest handler; rows absent from the push are dropped, so users the bot
-// has removed or zeroed disappear here too.
+// Replace the mirror with the bot's current standings. Called from the
+// ingest handler. Rows are always upserted; whether absent rows get pruned
+// depends on `complete` — see below.
 export type MirrorRow = { discordUserId: string; name: string; points: number };
 
-export async function syncMirror(ctx: MutationCtx, rows: MirrorRow[]) {
-  // A push with no rows is far more likely a bot-side hiccup (a transient
-  // empty/failed leaderboard read, a restart race) than a real "zero
-  // members" leaderboard. Since this function prunes anything absent from
-  // `rows`, treating empty as authoritative would wipe the whole mirror on
-  // one bad push. Ignore it and wait for the next sync instead.
+export async function syncMirror(ctx: MutationCtx, rows: MirrorRow[], complete?: boolean) {
+  // A push with no rows is far more likely a hiccup (a transient empty/failed
+  // leaderboard read, a bad manual probe — this has happened) than a real
+  // "zero members" leaderboard. Since a complete push prunes anything absent
+  // from `rows`, treating empty as authoritative would wipe the whole mirror
+  // on one bad push. Ignore it and wait for the next sync instead. Belt and
+  // braces alongside the bot's own guard against sending one.
   if (rows.length === 0) {
     console.warn("leaderboard.sync: ignoring empty push (would have wiped the mirror)");
-    return { synced: 0, skipped: "empty" as const };
+    return { synced: 0, pruned: false as const };
   }
 
   const now = Date.now();
@@ -42,10 +43,22 @@ export async function syncMirror(ctx: MutationCtx, rows: MirrorRow[]) {
       await ctx.db.insert("leaderboard_mirror", { ...row, updatedAt: now });
     }
   }
-  for (const stale of await ctx.db.query("leaderboard_mirror").collect()) {
-    if (!seen.has(stale.discordUserId)) await ctx.db.delete(stale._id);
+
+  // `complete` is false when the bot's own read was truncated (hit its row
+  // cap) — a row missing from this batch may just be missing from the batch,
+  // not actually gone. Only prune on a push the bot vouches for as the full
+  // set. Absent `complete` (an un-upgraded bot) is treated as complete.
+  if (complete === false) {
+    return { synced: rows.length, pruned: false as const };
   }
-  return { synced: rows.length };
+  let prunedCount = 0;
+  for (const stale of await ctx.db.query("leaderboard_mirror").collect()) {
+    if (!seen.has(stale.discordUserId)) {
+      await ctx.db.delete(stale._id);
+      prunedCount++;
+    }
+  }
+  return { synced: rows.length, pruned: true as const, prunedCount };
 }
 
 // The community leaderboard, exactly as the Discord bot scores it. Where a
