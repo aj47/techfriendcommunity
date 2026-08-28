@@ -7,5 +7,6 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     host: '0.0.0.0', // exe.dev proxy needs non-localhost binding
+    allowedHosts: ['convex-openai-hackathon.exe.xyz', '.exe.xyz'],
   },
 })

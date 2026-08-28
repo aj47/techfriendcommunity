@@ -24,6 +24,7 @@ import type * as lib_weekKey from "../lib/weekKey.js";
 import type * as links from "../links.js";
 import type * as messages from "../messages.js";
 import type * as points from "../points.js";
+import type * as staticSite from "../staticSite.js";
 import type * as users from "../users.js";
 
 import type {
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   links: typeof links;
   messages: typeof messages;
   points: typeof points;
+  staticSite: typeof staticSite;
   users: typeof users;
 }>;
 
