@@ -8,6 +8,7 @@ export function GlobalTools() {
   const convex = useConvex();
   const channels = useQuery(api.channels.list);
   const me = useQuery(api.users.me);
+  const summary = useQuery(api.summaries.latest, { limit: 8 });
 
   useWebMCPTool(
     {
@@ -21,6 +22,26 @@ export function GlobalTools() {
       },
     },
     [channels, me],
+  );
+
+  useWebMCPTool(
+    {
+      name: "get-daily-summary",
+      description: "Read the latest daily summary of the community. The Discord bot summarizes each channel's day and this returns the most recent one, per channel. Use it to catch up without reading the whole feed.",
+      inputSchema: {
+        type: "object",
+        properties: { channel: { type: "string", description: "Optional channel slug. Omit for the busiest channel that day." } },
+      },
+      async execute({ channel }: { channel?: string }) {
+        if (!summary || summary.entries.length === 0) return text("No daily summary has been published yet.");
+        const wanted = channel ? summary.entries.find((e) => e.channelSlug === channel) : summary.entries[0];
+        if (!wanted) {
+          return text(`No summary for "${channel}" on ${summary.date}. Summarized that day: ${summary.entries.map((e) => e.channelSlug ?? e.channelName).join(", ")}.`);
+        }
+        return text(`Daily summary for #${wanted.channelName} — ${summary.date} (${wanted.messageCount} messages, ${wanted.activeUsers} people):\n\n${wanted.summaryText}`);
+      },
+    },
+    [summary],
   );
 
   useWebMCPTool(

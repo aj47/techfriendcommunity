@@ -2,6 +2,7 @@ import { Route, Routes } from "react-router-dom";
 import Layout from "./components/Layout";
 import Home from "./routes/Home";
 import Channel from "./routes/Channel";
+import Channels from "./routes/Channels";
 import Leaderboard from "./routes/Leaderboard";
 import Resources from "./routes/Resources";
 import Settings from "./routes/Settings";
@@ -14,6 +15,7 @@ export default function App() {
       <GlobalTools />
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/channels" element={<Channels />} />
         <Route path="/channels/:slug" element={<Channel />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
         <Route path="/resources" element={<Resources />} />

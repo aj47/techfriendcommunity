@@ -24,6 +24,7 @@ import type * as links from "../links.js";
 import type * as messages from "../messages.js";
 import type * as points from "../points.js";
 import type * as staticSite from "../staticSite.js";
+import type * as summaries from "../summaries.js";
 import type * as users from "../users.js";
 
 import type {
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   messages: typeof messages;
   points: typeof points;
   staticSite: typeof staticSite;
+  summaries: typeof summaries;
   users: typeof users;
 }>;
 

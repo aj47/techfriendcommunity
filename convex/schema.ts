@@ -82,6 +82,9 @@ export default defineSchema({
     hiddenAt: v.optional(v.number()),
   })
     .index("by_channel_time", ["channelId", "createdAt"])
+    // Community-wide "latest messages" on the home page. Without it that view
+    // would have to fan out over every channel on every new message.
+    .index("by_createdAt", ["createdAt"])
     .index("by_author", ["authorUserId", "createdAt"])
     .index("by_discordMessageId", ["discordMessageId"])
     .searchIndex("search_content", {
@@ -100,6 +103,22 @@ export default defineSchema({
   })
     .index("by_discordUserId", ["discordUserId"])
     .index("by_points", ["points"]),
+
+  // The Discord bot's daily per-channel summaries, pushed by the bridge.
+  // The bot posts the summary body into a Discord *thread*, and threads are not
+  // mirrored, so this table is the web app's only copy of that text.
+  channel_summaries: defineTable({
+    channelId: v.id("channels"),
+    channelName: v.string(),
+    // The day summarized, YYYY-MM-DD in the bot's local timezone.
+    date: v.string(),
+    summaryText: v.string(),
+    messageCount: v.number(),
+    activeUsers: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_channel_date", ["channelId", "date"])
+    .index("by_date", ["date"]),
 
   // Idempotency for inbound AgentMail replies. Previously piggybacked on the
   // points ledger; it is bookkeeping, not scoring, so it gets its own table.

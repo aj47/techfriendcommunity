@@ -25,13 +25,13 @@ export default function Channel() {
     );
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] flex-col">
+    <div className="flex h-[calc(100dvh-11rem)] flex-col sm:h-[calc(100dvh-8rem)]">
       <ChannelTools slug={channel.slug} channelName={channel.name} messages={messages} />
-      <div className="mb-3 flex items-baseline gap-3">
+      <div className="mb-3 flex min-w-0 flex-wrap items-baseline gap-x-3">
         <h1 className="text-lg font-semibold">#{channel.name}</h1>
-        {channel.topic ? <p className="truncate text-sm text-zinc-500">{channel.topic}</p> : null}
+        {channel.topic ? <p className="min-w-0 truncate text-sm text-zinc-500">{channel.topic}</p> : null}
       </div>
-      <div className="flex-1 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-900/40 p-2">
+      <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-900/40 p-2">
         {status === "LoadingFirstPage" ? (
           <p className="p-2 text-zinc-500">Loading messages…</p>
         ) : messages.length === 0 ? (

@@ -28,6 +28,7 @@ http.route({
 http.route({ path: "/", method: "GET", handler: serveStatic });
 http.route({ pathPrefix: "/assets/", method: "GET", handler: serveStatic });
 http.route({ path: "/favicon.svg", method: "GET", handler: serveStatic });
+http.route({ path: "/channels", method: "GET", handler: serveStatic });
 http.route({ pathPrefix: "/channels/", method: "GET", handler: serveStatic });
 http.route({ path: "/leaderboard", method: "GET", handler: serveStatic });
 http.route({ path: "/resources", method: "GET", handler: serveStatic });

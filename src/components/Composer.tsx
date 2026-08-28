@@ -62,7 +62,7 @@ export default function Composer({ slug }: { slug: string }) {
         rows={3}
         maxLength={2000}
         placeholder={`Message #${slug}`}
-        className="w-full resize-none bg-transparent px-1 py-1 text-[15px] outline-none placeholder:text-zinc-600"
+        className="w-full resize-none bg-transparent px-1 py-1 text-base outline-none placeholder:text-zinc-600 sm:text-[15px]"
       />
       <div className="flex items-center justify-between px-1">
         <span className="text-xs text-zinc-500">{error ?? "⌘/Ctrl+Enter to send"}</span>

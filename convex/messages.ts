@@ -9,6 +9,7 @@ import { extractUrls } from "./lib/urls";
 import { ensureShadowUser, linkDiscordByCode } from "./users";
 import { syncChannels, type ChannelSyncInput } from "./channels";
 import { syncMirror } from "./points";
+import { syncSummaries } from "./summaries";
 import { enqueueLinks } from "./links";
 
 const MAX_LEN = 2000;
@@ -52,6 +53,28 @@ export const recent = query({
       .order("desc")
       .take(Math.min(Math.max(limit ?? 30, 1), 50) + 10);
     return { channel: { slug: channel.slug, name: channel.name }, messages: rows.filter((m) => !m.hiddenAt).slice(0, limit ?? 30).reverse().map(view) };
+  },
+});
+
+// Newest messages across every mirrored channel — the home page feed.
+export const latestAcross = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit }) => {
+    const n = Math.min(Math.max(limit ?? 25, 1), 50);
+    // Over-read so hidden (deleted) messages can be dropped without a second trip.
+    const rows = await ctx.db.query("messages").withIndex("by_createdAt").order("desc").take(n + 15);
+    const channels = new Map<string, { slug: string; name: string } | null>();
+    const out = [];
+    for (const m of rows) {
+      if (m.hiddenAt) continue;
+      if (out.length >= n) break;
+      if (!channels.has(m.channelId)) {
+        const c = await ctx.db.get(m.channelId);
+        channels.set(m.channelId, c ? { slug: c.slug, name: c.name } : null);
+      }
+      out.push({ ...view(m), channel: channels.get(m.channelId) ?? null });
+    }
+    return out;
   },
 });
 
@@ -152,6 +175,7 @@ export const markFailed = internalMutation({
 //   channel.sync   {channels: [{id, name, topic?, position, webhookUrl?}]}
 //   link.code      {code, discordUserId, name, avatar?}
 //   leaderboard.sync {rows: [{discordUserId, name, points}], complete?: boolean}
+//   summary.sync   {rows: [{discordChannelId, channelName, date, summaryText, messageCount, activeUsers, createdAt}]}
 
 type IngestEvent = Record<string, any> & { type: string };
 
@@ -223,6 +247,12 @@ export const ingest = internalMutation({
             // Reactions are scored by the Discord bot, not here. Kept as a
             // no-op so the bridge's event stream stays stable.
             bump("reaction.add");
+            break;
+          }
+          case "summary.sync": {
+            const r = await syncSummaries(ctx, ev.rows ?? []);
+            bump("summary.sync");
+            if (r.skipped) bump("summary.skipped");
             break;
           }
           case "leaderboard.sync": {
