@@ -16,6 +16,16 @@ import { publicUser } from "./lib/requireUser";
 export type MirrorRow = { discordUserId: string; name: string; points: number };
 
 export async function syncMirror(ctx: MutationCtx, rows: MirrorRow[]) {
+  // A push with no rows is far more likely a bot-side hiccup (a transient
+  // empty/failed leaderboard read, a restart race) than a real "zero
+  // members" leaderboard. Since this function prunes anything absent from
+  // `rows`, treating empty as authoritative would wipe the whole mirror on
+  // one bad push. Ignore it and wait for the next sync instead.
+  if (rows.length === 0) {
+    console.warn("leaderboard.sync: ignoring empty push (would have wiped the mirror)");
+    return { synced: 0, skipped: "empty" as const };
+  }
+
   const now = Date.now();
   const seen = new Set<string>();
   for (const row of rows) {
