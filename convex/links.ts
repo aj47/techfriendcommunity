@@ -3,7 +3,7 @@ import { FirecrawlClient } from "@firecrawl/firecrawl-convex";
 import { internalAction, internalMutation, internalQuery, mutation, query, type MutationCtx } from "./_generated/server";
 import { components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { normalizeUrl } from "./lib/urls";
+import { isCrawlableResource, normalizeUrl } from "./lib/urls";
 import { requireUser } from "./lib/requireUser";
 import { rateLimiter } from "./lib/rateLimits";
 
@@ -26,6 +26,7 @@ export async function enqueueLinks(
 ) {
   let added = 0;
   for (const raw of args.urls) {
+    if (!isCrawlableResource(raw)) continue;
     const url = normalizeUrl(raw);
     if (!url) continue;
     const existing = await ctx.db.query("link_resources").withIndex("by_url", (q) => q.eq("url", url)).unique();

@@ -35,3 +35,28 @@ export function normalizeUrl(raw: string): string | null {
     return null;
   }
 }
+
+const NON_RESOURCE_HOSTS = new Set([
+  "cdn.discordapp.com",
+  "media.discordapp.net",
+  "images-ext-1.discordapp.net",
+  "images-ext-2.discordapp.net",
+]);
+
+const NON_RESOURCE_EXT = /\.(png|jpe?g|gif|webp|bmp|svg|mp4|mov|webm|mp3|wav|ogg|zip|rar)$/i;
+
+// Whether a URL is worth crawling/summarizing as a shared "resource" — i.e.
+// a link to a page, not an image/video/audio attachment someone posted.
+// Discord uploads any pasted image or clip to its own CDN, and that URL
+// shows up in extractUrls() alongside real links; a raw attachment has no
+// content for Firecrawl to summarize and isn't what "resources" means here.
+export function isCrawlableResource(rawUrl: string): boolean {
+  try {
+    const u = new URL(rawUrl);
+    if (NON_RESOURCE_HOSTS.has(u.hostname.toLowerCase())) return false;
+    if (NON_RESOURCE_EXT.test(u.pathname)) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
