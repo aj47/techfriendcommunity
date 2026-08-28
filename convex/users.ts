@@ -1,5 +1,6 @@
 import { v, ConvexError } from "convex/values";
-import { mutation, query, type MutationCtx } from "./_generated/server";
+import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { optionalUser, publicUser, requireUser } from "./lib/requireUser";
 
@@ -72,8 +73,11 @@ export async function ensureShadowUser(
   });
 }
 
-// Claim a Discord identity with a code from Settings. Merges any shadow user's
-// messages and points into the signed-in account.
+// Claim a Discord identity with a code from Settings. If a shadow user already
+// holds that Discord id (from mirrored history), its messages are reassigned
+// to the claiming account in the background — an active, long-backfilled
+// member can easily have more messages than a single mutation's read/write
+// budget (4096), so this can't be done as one synchronous loop.
 export async function linkDiscordByCode(
   ctx: MutationCtx,
   args: { code: string; discordUserId: string; name: string; avatarUrl?: string },
@@ -91,12 +95,15 @@ export async function linkDiscordByCode(
     .unique();
   if (shadow && shadow._id !== target._id) {
     if (!shadow.isShadow) return { ok: false, reason: "already linked to another account" };
-    for await (const m of ctx.db.query("messages").withIndex("by_author", (q) => q.eq("authorUserId", shadow._id))) {
-      await ctx.db.patch(m._id, { authorUserId: target._id });
-    }
-    // Points need no merging: the mirror is keyed by Discord id, so claiming
-    // the account is enough for the standing to follow it.
-    await ctx.db.delete(shadow._id);
+    // Clear the shadow's identity now so it stops being found by
+    // by_discordUserId (new messages from this Discord id will attach to
+    // `target` immediately via ensureShadowUser); the row itself is deleted
+    // once every message has been moved off it.
+    await ctx.db.patch(shadow._id, { discordUserId: undefined });
+    await ctx.scheduler.runAfter(0, internal.users.reassignShadowMessages, {
+      shadowId: shadow._id,
+      targetId: target._id,
+    });
   }
   await ctx.db.patch(target._id, {
     discordUserId: args.discordUserId,
@@ -104,6 +111,27 @@ export async function linkDiscordByCode(
   });
   return { ok: true };
 }
+
+export const reassignShadowMessages = internalMutation({
+  args: { shadowId: v.id("users"), targetId: v.id("users"), cursor: v.optional(v.string()) },
+  handler: async (ctx, { shadowId, targetId, cursor }) => {
+    const page = await ctx.db
+      .query("messages")
+      .withIndex("by_author", (q) => q.eq("authorUserId", shadowId))
+      .paginate({ cursor: cursor ?? null, numItems: 200 });
+    for (const m of page.page) {
+      await ctx.db.patch(m._id, { authorUserId: targetId });
+    }
+    if (page.isDone) {
+      const shadow = await ctx.db.get(shadowId);
+      if (shadow) await ctx.db.delete(shadowId);
+    } else {
+      await ctx.scheduler.runAfter(0, internal.users.reassignShadowMessages, {
+        shadowId, targetId, cursor: page.continueCursor,
+      });
+    }
+  },
+});
 
 export const createLinkCode = mutation({
   args: {},
