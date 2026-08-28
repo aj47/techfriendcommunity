@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, type MutationCtx } from "./_generated/server";
+import { internalMutation, query, type MutationCtx } from "./_generated/server";
 import { publicUser } from "./lib/requireUser";
 
 // This app does not score anything.
@@ -87,5 +87,35 @@ export const lastSyncedAt = query({
   handler: async (ctx) => {
     const row = await ctx.db.query("leaderboard_mirror").first();
     return row?.updatedAt ?? null;
+  },
+});
+
+// One-shot cleanup of the retired scoring tables. Run it once after this
+// deploy (`npx convex run points:purgeLegacy`), then drop points_events,
+// leaderboard_weekly and users.pointsAllTime from the schema in a follow-up
+// deploy. Safe to re-run; it batches so a large ledger needs several calls.
+export const purgeLegacy = internalMutation({
+  args: { batch: v.optional(v.number()) },
+  handler: async (ctx, { batch }) => {
+    const n = Math.min(Math.max(batch ?? 500, 1), 4000);
+    let events = 0;
+    for (const row of await ctx.db.query("points_events").take(n)) {
+      await ctx.db.delete(row._id);
+      events++;
+    }
+    let weekly = 0;
+    for (const row of await ctx.db.query("leaderboard_weekly").take(n)) {
+      await ctx.db.delete(row._id);
+      weekly++;
+    }
+    let users = 0;
+    for (const u of await ctx.db.query("users").take(n)) {
+      if (u.pointsAllTime !== undefined) {
+        await ctx.db.patch(u._id, { pointsAllTime: undefined });
+        users++;
+      }
+    }
+    const done = events === 0 && weekly === 0 && users === 0;
+    return { events, weekly, users, done };
   },
 });

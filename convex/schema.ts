@@ -35,6 +35,8 @@ export default defineSchema({
     // Backfilled/mirrored author with no claimed account yet.
     isShadow: v.optional(v.boolean()),
     role: v.optional(roleValidator),
+    // Legacy; see the note on points_events above.
+    pointsAllTime: v.optional(v.number()),
   })
     .index("email", ["email"])
     .index("by_handle", ["handle"])
@@ -88,6 +90,30 @@ export default defineSchema({
       searchField: "content",
       filterFields: ["channelId"],
     }),
+
+  // Legacy scoring tables. Nothing writes to them any more; they stay declared
+  // only so this schema validates against documents already in the deployment.
+  // Run `points:purgeLegacy`, then delete these three declarations (and
+  // users.pointsAllTime below) in a follow-up deploy.
+  points_events: defineTable({
+    userId: v.id("users"),
+    kind: v.string(),
+    points: v.number(),
+    dedupeKey: v.string(),
+    weekKey: v.string(),
+    meta: v.optional(v.any()),
+    createdAt: v.number(),
+  })
+    .index("by_dedupeKey", ["dedupeKey"])
+    .index("by_user_time", ["userId", "createdAt"]),
+
+  leaderboard_weekly: defineTable({
+    weekKey: v.string(),
+    userId: v.id("users"),
+    points: v.number(),
+  })
+    .index("by_week_points", ["weekKey", "points"])
+    .index("by_week_user", ["weekKey", "userId"]),
 
   // Read-only mirror of the Discord bot's user_points table, pushed by the
   // bridge. The bot's LLM-judged points are the community's only scoring
