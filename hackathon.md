@@ -12,7 +12,7 @@
 - **Auth:** Convex Auth
 - **AI models:** none
 - **Started:** 2026-08-27T02:54:21Z
-- **Last updated:** 2026-08-28T19:59:50Z
+- **Last updated:** 2026-08-28T20:52:00Z
 
 ## Log
 
@@ -78,3 +78,23 @@ production URL: the served bundle points at itself (not the dev deployment),
 Firecrawl and AgentMail keys are placeholders pending real credentials.
 Convex features: HTTP actions serving the frontend, production deployment
 (`convex/staticSite.ts`, `convex/http.ts`, `scripts/gen-static-assets.mjs`).
+
+### 2026-08-28 - d825858
+Retired Convex's own points system in favor of mirroring the Discord bot's
+existing one. The community already had a trusted, LLM-judged leaderboard (110
+members, running since November) that scores quality; the volume-based scoring
+this app shipped with (1pt/message, +5 first-of-day, etc.) would have minted
+~320,000 points replaying the 250k-message backfilled archive — a second,
+gameable leaderboard contradicting the real one. Removed every award path
+(`awardPoints`, the weekly Discord announcement cron, per-message scoring on
+web/Discord/email); added a `leaderboard_mirror` table the bridge replaces
+wholesale via a new `leaderboard.sync` ingest event (bot pushes its standings
+every 10 min), keyed by Discord id so account-linking needs no points merge.
+Retired tables (`points_events`, `leaderboard_weekly`, `users.pointsAllTime`)
+stay declared until `points:purgeLegacy` clears their handful of real rows
+from before this landed, then a follow-up deploy drops them. Verified on
+production: ingest auth intact, a Discord message creates no points_events,
+`leaderboard.sync` populates the mirror correctly and sorts by points.
+Convex features: schema migration with staged legacy-table removal, mirror
+sync as an idempotent upsert-and-prune (`convex/points.ts`, `convex/schema.ts`,
+`convex/messages.ts`).
