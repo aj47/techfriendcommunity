@@ -12,7 +12,7 @@
 - **Auth:** Convex Auth
 - **AI models:** none
 - **Started:** 2026-08-27T02:54:21Z
-- **Last updated:** 2026-08-28T23:08:51Z
+- **Last updated:** 2026-08-29T00:00:35Z
 
 ## Log
 
@@ -170,3 +170,27 @@ the whole pre-consent chain (initial redirect, GitHub authorize URL,
 redirect_uri) now correctly targets www.techfriendcommunity.com throughout.
 Remaining piece: the new callback URL needs registering on the GitHub OAuth
 app (asked the bot-side session to add it, since they manage that app).
+
+### 2026-08-29 - f8713db
+Reviewed and deployed the other session's home-page redesign and mobile fixes.
+Home now leads with the bot's daily per-channel summary (rendered as React
+elements from lightweight markdown, not HTML — no injection surface for
+bot-sourced text) and a community-wide latest-messages feed; the channel
+directory moved to its own /channels route. Daily summaries live in Discord
+threads, which the bridge doesn't mirror, so a new `summary.sync` ingest
+event pushes them straight from the bot's own channel_summaries table;
+unlike the leaderboard this is an upsert-only sync (no pruning), so an
+empty or partial push can never delete anything — verified with a real push
+including two intentionally-invalid rows (unknown channel, malformed date),
+both correctly rejected while the valid row landed. Layout, Composer, and
+the channel view got real mobile fixes (100dvh, min-h-0 for flex-scroll,
+16px input text to avoid iOS auto-zoom, a horizontally-scrolling nav strip
+below the sm breakpoint). Also fixes the dangling @auth/core peer dependency
+noted earlier. Verified on production: bundle hash matches the reviewed
+build exactly, all routes 200, ingest still 401s unauthenticated, the
+existing 98-row leaderboard untouched. channel_summaries is empty until the
+production bot is restarted on techfren-discord-bot main (the commit with
+the summary-push code) — nothing to render until then. Convex features:
+new ingest event type, upsert-without-prune sync pattern, cross-channel
+index (`convex/summaries.ts`, `convex/schema.ts`, `convex/messages.ts`,
+`src/components/DailySummary.tsx`, `src/components/Layout.tsx`).
