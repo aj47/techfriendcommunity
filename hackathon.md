@@ -3,7 +3,7 @@
 - **Project:** techfriendcommunity
 - **Event:** Convex All Gas hackathon
 - **What it does:** Lets people browse, post in, and get email digests from the techfren Discord community without a Discord account, with a points leaderboard and WebMCP tools for browser agents.
-- **Live app:** https://hushed-crocodile-237.convex.site
+- **Live app:** https://www.techfriendcommunity.com (origin: https://hushed-crocodile-237.convex.site)
 - **Repo:** https://github.com/aj47/techfriendcommunity
 - **Frontend:** Convex static hosting (custom httpAction serving embedded dist/ assets)
 - **Convex deployment:** https://hushed-crocodile-237.convex.cloud
@@ -12,7 +12,7 @@
 - **Auth:** Convex Auth
 - **AI models:** none
 - **Started:** 2026-08-27T02:54:21Z
-- **Last updated:** 2026-08-29T00:17:16Z
+- **Last updated:** 2026-08-29T01:48:46Z
 
 ## Log
 
@@ -226,3 +226,31 @@ automatically, a reply inside it resolved correctly, and outbound delivery
 resolved the parent webhook + thread_id + quote text all correctly.
 Deployed to production; bundle hash, all routes, ingest auth, and the
 existing 98-row leaderboard all verified unaffected.
+
+### 2026-08-29 - 8623254
+Links people share now render as clickable links. Message bodies and the
+bot's daily summaries were being printed as raw text, so every URL that
+came in from Discord arrived here as dead characters — the thing people
+most want to click in a community feed.
+
+`linkify()` (`src/lib/linkify.tsx`) tokenizes text into React nodes:
+markdown `[label](url)`, bare http(s)/www URLs, and Discord's `<url>`
+embed-suppression form. Returning elements rather than an HTML string
+keeps it injection-proof by construction — an href can only come from a
+matched http(s) token, so `javascript:` never becomes one, and labels
+render as text. Trailing sentence punctuation is trimmed, but only
+unbalanced closing brackets, so `.../Foo_(bar)` survives intact.
+
+Deliberately not reusing `convex/lib/urls.ts`: that normalizes URLs
+(drops hashes and tracking params) for crawl dedup, which would silently
+rewrite what a person clicks. The home feed stays plain text because each
+row is already wrapped in a `<Link>` to its channel and nested anchors are
+invalid HTML.
+
+Checked the tokenizer against 14 cases compiled from the real source
+(trailing punctuation, balanced parens, angle-wrapped, markdown, bare
+`www.`, a lone `https://`, `javascript:`): no text is ever lost or
+duplicated and every emitted href is http(s). Deployed to production and
+verified the live bundle hash on both the branded domain and the
+convex.site origin (`src/components/MessageList.tsx`,
+`src/components/DailySummary.tsx`).
