@@ -23,6 +23,7 @@ import type * as lib_urls from "../lib/urls.js";
 import type * as links from "../links.js";
 import type * as messages from "../messages.js";
 import type * as points from "../points.js";
+import type * as retention from "../retention.js";
 import type * as staticSite from "../staticSite.js";
 import type * as summaries from "../summaries.js";
 import type * as users from "../users.js";
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   links: typeof links;
   messages: typeof messages;
   points: typeof points;
+  retention: typeof retention;
   staticSite: typeof staticSite;
   summaries: typeof summaries;
   users: typeof users;
