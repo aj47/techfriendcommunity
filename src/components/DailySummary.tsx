@@ -2,10 +2,12 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import { linkify } from "../lib/linkify";
 
 // The bot writes summaries as light markdown (**bold**, "- " bullets, "## "
 // headings). Rendering it as React elements rather than HTML keeps the text
-// unescaped-by-construction — nothing here can inject markup.
+// unescaped-by-construction — nothing here can inject markup. Bare URLs in the
+// summary text become real links via linkify(), same guarantee.
 function inline(line: string, key: string) {
   return line.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
     part.startsWith("**") && part.endsWith("**") && part.length > 4 ? (
@@ -13,7 +15,7 @@ function inline(line: string, key: string) {
         {part.slice(2, -2)}
       </strong>
     ) : (
-      <span key={`${key}-${i}`}>{part}</span>
+      <span key={`${key}-${i}`}>{linkify(part, `${key}-${i}`)}</span>
     ),
   );
 }
