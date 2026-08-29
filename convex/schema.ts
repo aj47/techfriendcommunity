@@ -48,9 +48,14 @@ export default defineSchema({
     position: v.number(),
     lastMessageAt: v.optional(v.number()),
     messageCount: v.number(),
+    // Threads are modeled as channels with a parent, reusing the same
+    // messages/webhook/posting infrastructure instead of a parallel concept.
+    isThread: v.optional(v.boolean()),
+    parentChannelId: v.optional(v.id("channels")),
   })
     .index("by_slug", ["slug"])
-    .index("by_discordChannelId", ["discordChannelId"]),
+    .index("by_discordChannelId", ["discordChannelId"])
+    .index("by_parentChannelId", ["parentChannelId"]),
 
   // Discord webhook URLs are capability secrets. Internal only.
   channelSecrets: defineTable({
@@ -77,6 +82,15 @@ export default defineSchema({
       v.literal("failed"),
     ),
     agentAssisted: v.boolean(),
+    // Resolved pointer for a reply, web- or Discord-originated (Discord's raw
+    // id lives in replyToDiscordMessageId; this is set whenever the target
+    // is a message we actually have). Discord threads created from a message
+    // share that message's id, so a thread's presence is found by looking up
+    // channels.by_discordChannelId with this message's own discordMessageId —
+    // no separate link is needed, but the resolved channel is denormalized
+    // here once found so channel views don't pay an extra read per message.
+    replyToMessageId: v.optional(v.id("messages")),
+    threadChannelId: v.optional(v.id("channels")),
     createdAt: v.number(),
     editedAt: v.optional(v.number()),
     hiddenAt: v.optional(v.number()),

@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
 import { fmtTime } from "../lib/format";
+import { draftStore } from "../lib/draftStore";
 
 export type MessageView = {
   id: string;
@@ -10,11 +12,17 @@ export type MessageView = {
   agentAssisted: boolean;
   createdAt: number;
   editedAt: number | null;
+  replyTo?: { id: string; author: string; snippet: string } | null;
+  thread?: { slug: string; name: string; messageCount: number } | null;
 };
 
 const sourceLabel: Record<MessageView["source"], string> = { discord: "", web: "web", email: "email" };
 
-export default function MessageList({ messages, onLoadMore, canLoadMore }: {
+// `slug` is the channel this list is rendered in — needed so the Reply
+// button knows which composer to stage into (also correct inside a thread,
+// since a thread is just a channel with its own slug).
+export default function MessageList({ slug, messages, onLoadMore, canLoadMore }: {
+  slug: string;
   messages: MessageView[];
   onLoadMore?: () => void;
   canLoadMore?: boolean;
@@ -49,8 +57,27 @@ export default function MessageList({ messages, onLoadMore, canLoadMore }: {
               {m.editedAt ? <span className="text-xs text-zinc-600">(edited)</span> : null}
               {m.status === "pending" ? <span className="text-xs text-amber-400">sending to Discord…</span> : null}
               {m.status === "failed" ? <span className="text-xs text-red-400">not delivered to Discord</span> : null}
+              <button
+                onClick={() => draftStore.replyTo(slug, { id: m.id, author: m.author.name, snippet: m.content.slice(0, 140) })}
+                className="ml-auto shrink-0 text-xs text-zinc-500 opacity-0 hover:text-white group-hover:opacity-100"
+              >
+                Reply
+              </button>
             </div>
+            {m.replyTo ? (
+              <p className="mt-0.5 truncate border-l-2 border-zinc-700 pl-2 text-xs text-zinc-500">
+                <span className="text-zinc-400">{m.replyTo.author}</span> — {m.replyTo.snippet}
+              </p>
+            ) : null}
             <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed text-zinc-200">{m.content}</p>
+            {m.thread ? (
+              <Link
+                to={`/channels/${m.thread.slug}`}
+                className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-400 hover:underline"
+              >
+                {m.thread.messageCount} {m.thread.messageCount === 1 ? "reply" : "replies"} in thread →
+              </Link>
+            ) : null}
           </div>
         </div>
       ))}

@@ -2,9 +2,10 @@
 // message here; only the human pressing Send posts it.
 import { useSyncExternalStore } from "react";
 
-export type Draft = { slug: string | null; text: string; agentStaged: boolean };
+export type ReplyTarget = { id: string; author: string; snippet: string };
+export type Draft = { slug: string | null; text: string; agentStaged: boolean; replyTo: ReplyTarget | null };
 
-let state: Draft = { slug: null, text: "", agentStaged: false };
+let state: Draft = { slug: null, text: "", agentStaged: false, replyTo: null };
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -18,11 +19,15 @@ export const draftStore = {
     emit();
   },
   stage(slug: string, text: string) {
-    state = { slug, text, agentStaged: true };
+    state = { slug, text, agentStaged: true, replyTo: state.slug === slug ? state.replyTo : null };
+    emit();
+  },
+  replyTo(slug: string, target: ReplyTarget) {
+    state = { slug, text: state.slug === slug ? state.text : "", agentStaged: false, replyTo: target };
     emit();
   },
   clear() {
-    state = { slug: state.slug, text: "", agentStaged: false };
+    state = { slug: state.slug, text: "", agentStaged: false, replyTo: null };
     emit();
   },
   subscribe(l: () => void) {

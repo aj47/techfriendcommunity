@@ -42,16 +42,31 @@ export function ChannelTools({ slug, channelName, messages }: { slug: string; ch
         type: "object",
         properties: {
           text: { type: "string", description: "The message text to stage in the composer." },
+          replyToAuthor: {
+            type: "string",
+            description: "Optional: stage this as a reply to that person's most recent message in the channel (matches the name from read-channel).",
+          },
         },
         required: ["text"],
       },
-      async execute({ text: body }: { text: string }) {
+      async execute({ text: body, replyToAuthor }: { text: string; replyToAuthor?: string }) {
         const t = (body ?? "").trim();
         if (!t) return text("Nothing staged: the text was empty.");
         if (t.length > 2000) return text(`Not staged: ${t.length} characters is over Discord's 2000 limit. Shorten it and try again.`);
-        draftStore.stage(slug, t);
+        let replyNote = "";
+        let replyTo = null;
+        if (replyToAuthor) {
+          const target = [...latest.current].reverse().find((m) => m.author.name.toLowerCase().includes(replyToAuthor.toLowerCase()));
+          if (target) {
+            replyTo = { id: target.id, author: target.author.name, snippet: target.content.slice(0, 140) };
+            replyNote = ` as a reply to ${target.author.name}`;
+          } else {
+            replyNote = ` (couldn't find a recent message from "${replyToAuthor}" to reply to — staged as a normal message instead)`;
+          }
+        }
+        draftStore.set({ slug, text: t, agentStaged: true, replyTo });
         document.getElementById("composer")?.focus();
-        return text(`Staged a ${t.length}-character draft in the #${channelName} composer. It is highlighted for the human to review and press Send. Nothing has been posted yet.`);
+        return text(`Staged a ${t.length}-character draft${replyNote} in the #${channelName} composer. It is highlighted for the human to review and press Send. Nothing has been posted yet.`);
       },
     },
     [slug, channelName],

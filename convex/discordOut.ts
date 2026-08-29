@@ -18,13 +18,19 @@ export const post = internalAction({
     const { message } = info;
     const suffix = message.source === "email" ? " (via email)" : "";
     const username = `${message.authorDisplay.name}${suffix}`.slice(0, 80);
+    // Discord's webhook API has no message_reference field (that's bot-only),
+    // so a reply is relayed as a quoted line — the best a webhook can do.
+    const quote = info.replyTo ? `> **${info.replyTo.author}:** ${info.replyTo.snippet.replace(/\n+/g, " ")}\n` : "";
+    const content = `${quote}${message.content}`.slice(0, 2000);
+    const params = new URLSearchParams({ wait: "true" });
+    if (info.threadDiscordId) params.set("thread_id", info.threadDiscordId);
     let status = 0;
     try {
-      const res = await fetch(`${info.webhookUrl}?wait=true`, {
+      const res = await fetch(`${info.webhookUrl}?${params}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          content: message.content.slice(0, 2000),
+          content,
           username,
           avatar_url: message.authorDisplay.avatarUrl,
           allowed_mentions: { parse: [] },

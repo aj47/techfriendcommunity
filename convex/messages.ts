@@ -14,7 +14,17 @@ import { enqueueLinks } from "./links";
 
 const MAX_LEN = 2000;
 
-function view(m: Doc<"messages">) {
+async function view(ctx: { db: { get: (id: any) => Promise<any> } }, m: Doc<"messages">) {
+  let replyTo: { id: Id<"messages">; author: string; snippet: string } | null = null;
+  if (m.replyToMessageId) {
+    const target = await ctx.db.get(m.replyToMessageId);
+    if (target) replyTo = { id: target._id, author: target.authorDisplay.name, snippet: target.content.slice(0, 140) };
+  }
+  let thread: { slug: string; name: string; messageCount: number } | null = null;
+  if (m.threadChannelId) {
+    const t = await ctx.db.get(m.threadChannelId);
+    if (t) thread = { slug: t.slug, name: t.name, messageCount: t.messageCount };
+  }
   return {
     id: m._id,
     channelId: m.channelId,
@@ -27,7 +37,15 @@ function view(m: Doc<"messages">) {
     createdAt: m.createdAt,
     editedAt: m.editedAt ?? null,
     urls: m.urls,
+    replyTo,
+    thread,
   };
+}
+
+async function viewAll(ctx: { db: { get: (id: any) => Promise<any> } }, rows: Doc<"messages">[]) {
+  const out = [];
+  for (const m of rows) out.push(await view(ctx, m));
+  return out;
 }
 
 export const list = query({
@@ -38,7 +56,7 @@ export const list = query({
       .withIndex("by_channel_time", (q) => q.eq("channelId", channelId))
       .order("desc")
       .paginate(paginationOpts);
-    return { ...page, page: page.page.filter((m) => !m.hiddenAt).map(view) };
+    return { ...page, page: await viewAll(ctx, page.page.filter((m) => !m.hiddenAt)) };
   },
 });
 
@@ -52,7 +70,8 @@ export const recent = query({
       .withIndex("by_channel_time", (q) => q.eq("channelId", channel._id))
       .order("desc")
       .take(Math.min(Math.max(limit ?? 30, 1), 50) + 10);
-    return { channel: { slug: channel.slug, name: channel.name }, messages: rows.filter((m) => !m.hiddenAt).slice(0, limit ?? 30).reverse().map(view) };
+    const kept = rows.filter((m) => !m.hiddenAt).slice(0, limit ?? 30).reverse();
+    return { channel: { slug: channel.slug, name: channel.name }, messages: await viewAll(ctx, kept) };
   },
 });
 
@@ -72,7 +91,7 @@ export const latestAcross = query({
         const c = await ctx.db.get(m.channelId);
         channels.set(m.channelId, c ? { slug: c.slug, name: c.name } : null);
       }
-      out.push({ ...view(m), channel: channels.get(m.channelId) ?? null });
+      out.push({ ...(await view(ctx, m)), channel: channels.get(m.channelId) ?? null });
     }
     return out;
   },
@@ -94,7 +113,7 @@ export const search = query({
     for (const m of rows) {
       if (m.hiddenAt) continue;
       const c = await ctx.db.get(m.channelId);
-      out.push({ ...view(m), channel: c ? { slug: c.slug, name: c.name } : null });
+      out.push({ ...(await view(ctx, m)), channel: c ? { slug: c.slug, name: c.name } : null });
     }
     return out;
   },
@@ -111,8 +130,13 @@ async function bumpChannel(ctx: MutationCtx, channelId: Id<"channels">, at: numb
 
 // Post from the web (or via a WebMCP-staged draft the human sent).
 export const post = mutation({
-  args: { slug: v.string(), content: v.string(), agentAssisted: v.optional(v.boolean()) },
-  handler: async (ctx, { slug, content, agentAssisted }) => {
+  args: {
+    slug: v.string(),
+    content: v.string(),
+    agentAssisted: v.optional(v.boolean()),
+    replyToMessageId: v.optional(v.id("messages")),
+  },
+  handler: async (ctx, { slug, content, agentAssisted, replyToMessageId }) => {
     const user = await requireUser(ctx);
     if (!user.handle) throw new ConvexError({ code: "profile", message: "Pick a handle in Settings before posting." });
     const channel = await ctx.db.query("channels").withIndex("by_slug", (q) => q.eq("slug", slug)).unique();
@@ -121,6 +145,14 @@ export const post = mutation({
     if (!text) throw new ConvexError({ code: "invalid", message: "Message is empty." });
     if (text.length > MAX_LEN) throw new ConvexError({ code: "invalid", message: `Message is over ${MAX_LEN} characters.` });
     await rateLimiter.limit(ctx, "postMessage", { key: user._id, throws: true });
+
+    // Silently drop a stale/foreign reply target rather than fail the post —
+    // the message is still meaningful on its own.
+    let replyTo: Doc<"messages"> | null = null;
+    if (replyToMessageId) {
+      const target = await ctx.db.get(replyToMessageId);
+      if (target && target.channelId === channel._id) replyTo = target;
+    }
 
     const now = Date.now();
     const urls = extractUrls(text);
@@ -133,6 +165,7 @@ export const post = mutation({
       urls,
       status: "pending",
       agentAssisted: !!agentAssisted,
+      replyToMessageId: replyTo?._id,
       createdAt: now,
     });
     await bumpChannel(ctx, channel._id, now);
@@ -147,8 +180,20 @@ export const getForDelivery = internalQuery({
   handler: async (ctx, { messageId }) => {
     const message = await ctx.db.get(messageId);
     if (!message) return null;
-    const secret = await ctx.db.query("channelSecrets").withIndex("by_channelId", (q) => q.eq("channelId", message.channelId)).unique();
-    return { message, webhookUrl: secret?.webhookUrl ?? null };
+    const channel = await ctx.db.get(message.channelId);
+    const secretChannelId = channel?.isThread && channel.parentChannelId ? channel.parentChannelId : message.channelId;
+    const secret = await ctx.db.query("channelSecrets").withIndex("by_channelId", (q) => q.eq("channelId", secretChannelId)).unique();
+    let replyTo: { author: string; snippet: string } | null = null;
+    if (message.replyToMessageId) {
+      const target = await ctx.db.get(message.replyToMessageId);
+      if (target) replyTo = { author: target.authorDisplay.name, snippet: target.content.slice(0, 100) };
+    }
+    return {
+      message,
+      webhookUrl: secret?.webhookUrl ?? null,
+      threadDiscordId: channel?.isThread ? channel.discordChannelId : null,
+      replyTo,
+    };
   },
 });
 
@@ -172,7 +217,7 @@ export const markFailed = internalMutation({
 //   message.edit   {id, content, editedAt}
 //   message.delete {id}
 //   reaction.add   {messageId, emoji, userId}
-//   channel.sync   {channels: [{id, name, topic?, position, webhookUrl?}]}
+//   channel.sync   {channels: [{id, name, topic?, position, webhookUrl?, parentId?, isThread?}]}
 //   link.code      {code, discordUserId, name, avatar?}
 //   leaderboard.sync {rows: [{discordUserId, name, points}], complete?: boolean}
 //   summary.sync   {rows: [{discordChannelId, channelName, date, summaryText, messageCount, activeUsers, createdAt}]}
@@ -209,6 +254,11 @@ export const ingest = internalMutation({
             const discordUserId = ev.webhookId ? `webhook:${ev.webhookId}` : String(ev.authorId);
             const userId = await ensureShadowUser(ctx, { discordUserId, name: ev.authorName ?? "member", avatarUrl: ev.authorAvatar ?? undefined });
             const urls = extractUrls(content);
+            let replyToMessageId;
+            if (ev.replyToId) {
+              const target = await ctx.db.query("messages").withIndex("by_discordMessageId", (q) => q.eq("discordMessageId", String(ev.replyToId))).unique();
+              replyToMessageId = target?._id;
+            }
             const messageId = await ctx.db.insert("messages", {
               channelId: channel._id,
               authorUserId: userId,
@@ -217,6 +267,7 @@ export const ingest = internalMutation({
               source: "discord",
               discordMessageId: String(ev.id),
               replyToDiscordMessageId: ev.replyToId ? String(ev.replyToId) : undefined,
+              replyToMessageId,
               urls,
               status: "synced",
               agentAssisted: false,

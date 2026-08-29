@@ -12,7 +12,7 @@
 - **Auth:** Convex Auth
 - **AI models:** none
 - **Started:** 2026-08-27T02:54:21Z
-- **Last updated:** 2026-08-29T00:00:35Z
+- **Last updated:** 2026-08-29T00:17:16Z
 
 ## Log
 
@@ -194,3 +194,35 @@ the summary-push code) — nothing to render until then. Convex features:
 new ingest event type, upsert-without-prune sync pattern, cross-channel
 index (`convex/summaries.ts`, `convex/schema.ts`, `convex/messages.ts`,
 `src/components/DailySummary.tsx`, `src/components/Layout.tsx`).
+
+### 2026-08-29 - (reply-to-message + real Discord threads)
+Added the ability to reply to a specific message and to see and post inside
+real Discord threads, not just top-level channels.
+
+Threads are modeled as `channels` rows with `isThread` + `parentChannelId`
+rather than a parallel concept, so every existing piece — the channel view,
+composer, webhook posting, pagination, search — works for a thread with no
+special-casing. The one new fact this leans on: Discord guarantees a thread
+started from a message shares that message's id, so `channel.sync` linking a
+thread to its origin message is a plain lookup by that shared id, no extra
+bookkeeping event needed. The channel directory excludes threads; a message
+that grew a thread shows a live "N replies in thread →" link instead.
+
+Reply-to-message: `messages.post` takes an optional `replyToMessageId`
+(validated against the same channel, silently dropped rather than failing
+the post if stale or foreign); the UI shows a quoted preview above replies
+and a "reply" chip while composing. Discord's webhook API has no
+`message_reference` field (confirmed against the docs — that's bot-only), so
+a reply relayed outward is rendered as a quoted line prepended to the
+content rather than a true linked reply; posting into a thread reuses the
+parent channel's webhook with Discord's documented `?thread_id=` parameter,
+so no per-thread webhook is created.
+
+Extended `stage-message` (WebMCP) with an optional `replyToAuthor` so an
+agent can stage a reply, not just a bare message — kept inside the existing
+tool rather than adding a new one. Verified the full chain on dev: a
+message started a "thread", the thread linked to its origin message
+automatically, a reply inside it resolved correctly, and outbound delivery
+resolved the parent webhook + thread_id + quote text all correctly.
+Deployed to production; bundle hash, all routes, ingest auth, and the
+existing 98-row leaderboard all verified unaffected.

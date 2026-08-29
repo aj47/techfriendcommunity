@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import { draftStore, useDraft } from "../lib/draftStore";
 
 export default function Composer({ slug }: { slug: string }) {
@@ -14,6 +15,7 @@ export default function Composer({ slug }: { slug: string }) {
   const [sending, setSending] = useState(false);
   const text = draft.slug === slug ? draft.text : "";
   const staged = draft.slug === slug && draft.agentStaged && text.length > 0;
+  const replyTo = draft.slug === slug ? draft.replyTo : null;
 
   if (!isAuthenticated) {
     return (
@@ -35,7 +37,7 @@ export default function Composer({ slug }: { slug: string }) {
     setSending(true);
     setError(null);
     try {
-      await post({ slug, content: text, agentAssisted: staged });
+      await post({ slug, content: text, agentAssisted: staged, replyToMessageId: replyTo?.id as Id<"messages"> | undefined });
       draftStore.clear();
     } catch (e) {
       setError(e instanceof ConvexError ? String((e.data as { message?: string })?.message ?? e.data) : "Couldn't send. Try again.");
@@ -50,6 +52,17 @@ export default function Composer({ slug }: { slug: string }) {
         <div className="mb-1 flex items-center justify-between px-1 text-xs text-emerald-300">
           <span>Drafted by your agent — review, then press Send.</span>
           <button onClick={() => draftStore.clear()} className="text-zinc-500 hover:text-white">Discard</button>
+        </div>
+      ) : null}
+      {replyTo ? (
+        <div className="mb-1 flex items-start justify-between gap-2 rounded-md bg-zinc-800/60 px-2 py-1.5 text-xs">
+          <p className="min-w-0 text-zinc-400">
+            Replying to <span className="font-medium text-zinc-300">{replyTo.author}</span>
+            <span className="ml-1 truncate text-zinc-500">— {replyTo.snippet}</span>
+          </p>
+          <button onClick={() => draftStore.set({ replyTo: null })} className="shrink-0 text-zinc-500 hover:text-white">
+            Cancel
+          </button>
         </div>
       ) : null}
       <textarea
