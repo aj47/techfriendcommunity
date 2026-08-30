@@ -2,11 +2,14 @@ import { Link } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { timeAgo } from "../lib/format";
+import { pageTitle, usePageMeta } from "../lib/head";
 
 // The channel directory. It used to be the home page; home now leads with the
 // daily summary and the live feed, and this is where you come to pick a room.
 export default function Channels() {
   const channels = useQuery(api.channels.list);
+  const retention = useQuery(api.channels.retention);
+  usePageMeta(pageTitle("Channels"), "Every mirrored channel in the techfren community.");
   return (
     <div className="space-y-4">
       <h1 className="text-lg font-semibold">Channels</h1>
@@ -29,7 +32,12 @@ export default function Channels() {
                   </span>
                 </div>
                 {c.topic ? <p className="mt-1 line-clamp-2 text-sm text-zinc-400">{c.topic}</p> : null}
-                <p className="mt-2 text-xs text-zinc-500">{c.messageCount.toLocaleString()} messages</p>
+                {/* messageCount is lifetime activity; retention sweeps don't
+                    decrement it, so don't imply all of it is still readable. */}
+                <p className="mt-2 text-xs text-zinc-500">
+                  {c.messageCount.toLocaleString()} messages all-time
+                  {retention?.days ? <span className="text-zinc-600"> · last {retention.days} days here</span> : null}
+                </p>
               </Link>
             </li>
           ))}

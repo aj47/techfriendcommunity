@@ -1,37 +1,63 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useConvex, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { api } from "../../convex/_generated/api";
 import { timeAgo } from "../lib/format";
+import { pageTitle, usePageMeta } from "../lib/head";
 import { text, useWebMCPTool } from "../webmcp/useWebMCPTool";
 
+// Stored URLs are normalized on write, so this should always parse — but this
+// runs during render, and one unparseable row would take the page down with it.
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+function useDebounced<T>(value: T, ms: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return debounced;
+}
+
 export default function Resources() {
-  const rows = useQuery(api.links.list, { limit: 100 });
   const convex = useConvex();
   const requestSummary = useMutation(api.links.requestSummary);
   const [filter, setFilter] = useState("");
-  const q = filter.trim().toLowerCase();
-  const visible = (rows ?? []).filter((r) =>
-    !q || [r.url, r.title, r.summary, r.siteName, ...r.tags].filter(Boolean).some((s) => String(s).toLowerCase().includes(q)),
-  );
+  usePageMeta(pageTitle("Resources"), "Links the community has shared, crawled and summarized automatically.");
+
+  // The filter box used to match only the rows already on screen, so anything
+  // past the newest 100 links was invisible to it — searching the archive
+  // silently reported "nothing here". It now runs the backend search index.
+  const q = useDebounced(filter.trim(), 250);
+  const recent = useQuery(api.links.list, { limit: 100 });
+  const found = useQuery(api.links.search, q ? { query: q, limit: 50 } : "skip");
+  const rows = q ? found : recent;
 
   useWebMCPTool(
     {
       name: "search-resources",
-      description: "Search the links the community has shared. Each resource has a title, a short summary, and tags produced by crawling the page. Filters the visible list to match.",
+      description: "Search the links the community has shared. Each resource has a title, a short summary, and tags produced by crawling the page. Searches the whole archive, and filters the visible list to match.",
       inputSchema: {
         type: "object",
         properties: { query: { type: "string", description: "Words to match in title, summary, tags, or URL. Empty for everything." } },
       },
       async execute({ query }: { query?: string }) {
-        setFilter(query ?? "");
-        const needle = (query ?? "").trim().toLowerCase();
-        const hits = (rows ?? []).filter((r) => !needle || [r.url, r.title, r.summary, r.siteName, ...r.tags].filter(Boolean).some((s) => String(s).toLowerCase().includes(needle)));
-        if (hits.length === 0) return text(needle ? `No shared links match "${query}".` : "No links shared yet.");
-        return text(hits.slice(0, 20).map((r) => `${r.title ?? r.url}\n${r.url}\n${r.summary ?? (r.crawlStatus === "pending" ? "(summary pending)" : "")}${r.tags.length ? `\nTags: ${r.tags.join(", ")}` : ""}`).join("\n\n"));
+        const needle = (query ?? "").trim();
+        setFilter(needle);
+        const hits = needle
+          ? await convex.query(api.links.search, { query: needle, limit: 20 })
+          : (recent ?? []).slice(0, 20);
+        if (hits.length === 0) return text(needle ? `No shared links match "${needle}".` : "No links shared yet.");
+        return text(hits.map((r) => `${r.title ?? r.url}\n${r.url}\n${r.summary ?? (r.crawlStatus === "pending" ? "(summary pending)" : "")}${r.tags.length ? `\nTags: ${r.tags.join(", ")}` : ""}`).join("\n\n"));
       },
     },
-    [rows],
+    [recent],
   );
 
   useWebMCPTool(
@@ -69,19 +95,27 @@ export default function Resources() {
     <div className="space-y-4">
       <div className="flex items-center gap-3">
         <h1 className="text-lg font-semibold">Resources</h1>
-        <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter links…" className="ml-auto rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm outline-none focus:border-zinc-600" />
+        <input
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Search links…"
+          aria-label="Search shared links"
+          className="ml-auto rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm outline-none focus:border-zinc-600"
+        />
       </div>
-      <p className="text-sm text-zinc-500">Links shared in the community, crawled and summarized automatically.</p>
+      <p className="text-sm text-zinc-500">
+        {q ? `Matching "${q}" across every shared link.` : "Links shared in the community, crawled and summarized automatically."}
+      </p>
       {rows === undefined ? (
-        <p className="text-zinc-500">Loading…</p>
-      ) : visible.length === 0 ? (
-        <p className="text-zinc-500">Nothing here yet.</p>
+        <p className="text-zinc-500">{q ? "Searching…" : "Loading…"}</p>
+      ) : rows.length === 0 ? (
+        <p className="text-zinc-500">{q ? `Nothing matches "${q}".` : "Nothing here yet."}</p>
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
-          {visible.map((r) => (
+          {rows.map((r) => (
             <li key={r.id} className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
               <a href={r.url} target="_blank" rel="noreferrer" className="font-medium hover:underline">{r.title ?? r.url}</a>
-              <p className="mt-1 text-xs text-zinc-500">{r.siteName ?? new URL(r.url).hostname} · {timeAgo(r.createdAt)}</p>
+              <p className="mt-1 text-xs text-zinc-500">{r.siteName ?? hostOf(r.url)} · {timeAgo(r.createdAt)}</p>
               {r.crawlStatus === "pending" ? (
                 <p className="mt-2 text-sm text-amber-300/80">Crawling…</p>
               ) : r.crawlStatus === "failed" ? (

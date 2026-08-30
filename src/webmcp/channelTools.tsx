@@ -64,7 +64,7 @@ export function ChannelTools({ slug, channelName, messages }: { slug: string; ch
             replyNote = ` (couldn't find a recent message from "${replyToAuthor}" to reply to — staged as a normal message instead)`;
           }
         }
-        draftStore.set({ slug, text: t, agentStaged: true, replyTo });
+        draftStore.stage(slug, t, replyTo);
         document.getElementById("composer")?.focus();
         return text(`Staged a ${t.length}-character draft${replyNote} in the #${channelName} composer. It is highlighted for the human to review and press Send. Nothing has been posted yet.`);
       },
@@ -77,8 +77,8 @@ export function ChannelTools({ slug, channelName, messages }: { slug: string; ch
       name: "get-staged-message",
       description: `Check what is currently in the composer for #${channelName} and whether it was staged by an agent or typed by the human.`,
       async execute() {
-        const d = draftStore.get();
-        if (d.slug !== slug || !d.text) return text(`The #${channelName} composer is empty.`);
+        const d = draftStore.for(slug);
+        if (!d.text) return text(`The #${channelName} composer is empty.`);
         return text(`Composer for #${channelName} contains (${d.agentStaged ? "staged by agent" : "typed by the human"}):\n${d.text}`);
       },
     },

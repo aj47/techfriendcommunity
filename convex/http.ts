@@ -32,6 +32,7 @@ http.route({ path: "/channels", method: "GET", handler: serveStatic });
 http.route({ pathPrefix: "/channels/", method: "GET", handler: serveStatic });
 http.route({ path: "/leaderboard", method: "GET", handler: serveStatic });
 http.route({ path: "/resources", method: "GET", handler: serveStatic });
+http.route({ path: "/search", method: "GET", handler: serveStatic });
 http.route({ path: "/settings", method: "GET", handler: serveStatic });
 http.route({ path: "/signin", method: "GET", handler: serveStatic });
 

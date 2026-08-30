@@ -4,6 +4,7 @@ import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { api } from "../../convex/_generated/api";
 import DigestSection from "../components/DigestSection";
+import { pageTitle, usePageMeta } from "../lib/head";
 
 export default function Settings() {
   const { isAuthenticated } = useConvexAuth();
@@ -14,6 +15,7 @@ export default function Settings() {
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [code, setCode] = useState<string | null>(null);
+  usePageMeta(pageTitle("Settings"));
 
   if (!isAuthenticated) return <p className="text-zinc-400"><Link to="/signin" className="text-emerald-400">Sign in</Link> to manage your profile.</p>;
   if (!me) return <p className="text-zinc-500">Loading…</p>;

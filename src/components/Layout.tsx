@@ -9,6 +9,7 @@ const nav = [
   { to: "/channels", label: "Channels" },
   { to: "/leaderboard", label: "Leaderboard" },
   { to: "/resources", label: "Resources" },
+  { to: "/search", label: "Search" },
 ];
 
 function NavItems() {

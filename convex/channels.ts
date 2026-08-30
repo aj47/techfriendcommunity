@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery, query, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { slugify } from "./lib/slug";
+import { retentionDays } from "./retention";
 
 export const list = query({
   args: {},
@@ -17,6 +18,15 @@ export const list = query({
       messageCount: c.messageCount,
     }));
   },
+});
+
+// How many days of raw messages this deployment keeps, or null when retention
+// is disabled/misconfigured. `channels.messageCount` is a lifetime counter that
+// sweeps deliberately do not decrement (see convex/retention.ts), so without
+// this the UI would promise 12,000 messages and then show 90 days of them.
+export const retention = query({
+  args: {},
+  handler: async () => ({ days: retentionDays() }),
 });
 
 export const bySlug = query({

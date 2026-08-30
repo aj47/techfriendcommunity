@@ -1,10 +1,12 @@
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { text, useWebMCPTool } from "../webmcp/useWebMCPTool";
+import { pageTitle, usePageMeta } from "../lib/head";
 
 export default function Leaderboard() {
   const rows = useQuery(api.points.leaderboard, { limit: 50 });
   const syncedAt = useQuery(api.points.lastSyncedAt);
+  usePageMeta(pageTitle("Leaderboard"), "Community standings, scored in Discord by the techfren bot.");
 
   useWebMCPTool(
     {

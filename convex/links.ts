@@ -9,6 +9,26 @@ import { rateLimiter } from "./lib/rateLimits";
 
 const firecrawl = new FirecrawlClient(components.firecrawl);
 
+// One field for the search index to cover. Searching only `summary` missed
+// every link whose topic lives in its title, its tags, or its domain — which is
+// most of the ways people actually look for a link they half-remember.
+function searchTextFor(r: {
+  url: string; title?: string; summary?: string; siteName?: string; tags?: string[];
+}): string {
+  let host = "";
+  try {
+    host = new URL(r.url).hostname.replace(/^www\./, "");
+  } catch {
+    // Stored URLs are normalized on write, so this should not happen; building
+    // search text is never worth throwing over if one ever isn't.
+  }
+  return [r.title, r.summary, r.siteName, host, (r.tags ?? []).join(" "), r.url]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase()
+    .slice(0, 4000);
+}
+
 function view(r: {
   _id: Id<"link_resources">; url: string; title?: string; summary?: string; siteName?: string;
   tags: string[]; crawlStatus: "pending" | "done" | "failed"; createdAt: number; channelId?: Id<"channels">;
@@ -33,7 +53,7 @@ export async function enqueueLinks(
     if (existing) continue;
     const resourceId = await ctx.db.insert("link_resources", {
       url, tags: [], sharedByUserId: args.userId, messageId: args.messageId, channelId: args.channelId,
-      crawlStatus: "pending", createdAt: args.at,
+      crawlStatus: "pending", createdAt: args.at, searchText: searchTextFor({ url }),
     });
     await ctx.scheduler.runAfter(0, internal.links.enrich, { resourceId });
     added++;
@@ -59,13 +79,16 @@ export const byUrl = query({
   },
 });
 
+// Searches every shared link, not just the crawled ones: a link whose crawl is
+// pending or failed is still findable by its title or domain, and the UI shows
+// its status. This is what the Resources filter box calls.
 export const search = query({
   args: { query: v.string(), limit: v.optional(v.number()) },
   handler: async (ctx, { query: q, limit }) => {
     if (!q.trim()) return [];
     const rows = await ctx.db
       .query("link_resources")
-      .withSearchIndex("search_resources", (s) => s.search("summary", q).eq("crawlStatus", "done"))
+      .withSearchIndex("search_text", (s) => s.search("searchText", q))
       .take(Math.min(limit ?? 20, 50));
     return rows.map(view);
   },
@@ -91,6 +114,7 @@ export const requestSummary = mutation({
     await rateLimiter.limit(ctx, "summarizeLink", { key: user._id, throws: true });
     const resourceId = await ctx.db.insert("link_resources", {
       url, tags: [], sharedByUserId: user._id, crawlStatus: "pending", createdAt: Date.now(),
+      searchText: searchTextFor({ url }),
     });
     await ctx.scheduler.runAfter(0, internal.links.enrich, { resourceId });
     return { resourceId, status: "pending" as const };
@@ -113,10 +137,41 @@ export const finish = internalMutation({
   handler: async (ctx, { resourceId, title, summary, siteName, tags }) => {
     const r = await ctx.db.get(resourceId);
     if (!r) return;
-    await ctx.db.patch(resourceId, {
+    const next = {
       title: title?.slice(0, 200), summary: summary?.slice(0, 1500), siteName: siteName?.slice(0, 100),
-      tags: tags.slice(0, 6).map((t) => t.toLowerCase().slice(0, 30)), crawlStatus: "done", failReason: undefined,
+      tags: tags.slice(0, 6).map((t) => t.toLowerCase().slice(0, 30)),
+    };
+    await ctx.db.patch(resourceId, {
+      ...next, crawlStatus: "done", failReason: undefined,
+      searchText: searchTextFor({ url: r.url, ...next }),
     });
+  },
+});
+
+// Idempotent backfill for rows written before `searchText` existed; without it
+// they are invisible to the new index. Threads a cursor on purpose: these rows
+// stay in place, so a repeated `.take()` would re-read the same page forever
+// and silently backfill only the first N.
+export const backfillSearchText = internalMutation({
+  args: { cursor: v.optional(v.string()), updated: v.optional(v.number()) },
+  handler: async (ctx, { cursor, updated = 0 }) => {
+    const page = await ctx.db.query("link_resources").paginate({ cursor: cursor ?? null, numItems: 200 });
+    let n = updated;
+    for (const r of page.page) {
+      const next = searchTextFor(r);
+      if (r.searchText !== next) {
+        await ctx.db.patch(r._id, { searchText: next });
+        n++;
+      }
+    }
+    if (page.isDone) {
+      console.log("links: searchText backfill complete", { updated: n });
+      return { updated: n, done: true };
+    }
+    await ctx.scheduler.runAfter(0, internal.links.backfillSearchText, {
+      cursor: page.continueCursor, updated: n,
+    });
+    return { updated: n, done: false };
   },
 });
 

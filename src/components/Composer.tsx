@@ -10,12 +10,12 @@ export default function Composer({ slug }: { slug: string }) {
   const { isAuthenticated } = useConvexAuth();
   const me = useQuery(api.users.me);
   const post = useMutation(api.messages.post);
-  const draft = useDraft();
+  const draft = useDraft(slug);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  const text = draft.slug === slug ? draft.text : "";
-  const staged = draft.slug === slug && draft.agentStaged && text.length > 0;
-  const replyTo = draft.slug === slug ? draft.replyTo : null;
+  const text = draft.text;
+  const staged = draft.agentStaged && text.length > 0;
+  const replyTo = draft.replyTo;
 
   if (!isAuthenticated) {
     return (
@@ -38,7 +38,7 @@ export default function Composer({ slug }: { slug: string }) {
     setError(null);
     try {
       await post({ slug, content: text, agentAssisted: staged, replyToMessageId: replyTo?.id as Id<"messages"> | undefined });
-      draftStore.clear();
+      draftStore.clearFor(slug);
     } catch (e) {
       setError(e instanceof ConvexError ? String((e.data as { message?: string })?.message ?? e.data) : "Couldn't send. Try again.");
     } finally {
@@ -51,7 +51,7 @@ export default function Composer({ slug }: { slug: string }) {
       {staged ? (
         <div className="mb-1 flex items-center justify-between px-1 text-xs text-emerald-300">
           <span>Drafted by your agent — review, then press Send.</span>
-          <button onClick={() => draftStore.clear()} className="text-zinc-500 hover:text-white">Discard</button>
+          <button onClick={() => draftStore.clearFor(slug)} className="text-zinc-500 hover:text-white">Discard</button>
         </div>
       ) : null}
       {replyTo ? (
@@ -60,7 +60,7 @@ export default function Composer({ slug }: { slug: string }) {
             Replying to <span className="font-medium text-zinc-300">{replyTo.author}</span>
             <span className="ml-1 truncate text-zinc-500">— {replyTo.snippet}</span>
           </p>
-          <button onClick={() => draftStore.set({ replyTo: null })} className="shrink-0 text-zinc-500 hover:text-white">
+          <button onClick={() => draftStore.setFor(slug, { replyTo: null })} className="shrink-0 text-zinc-500 hover:text-white">
             Cancel
           </button>
         </div>
@@ -68,7 +68,7 @@ export default function Composer({ slug }: { slug: string }) {
       <textarea
         id="composer"
         value={text}
-        onChange={(e) => draftStore.set({ slug, text: e.target.value, agentStaged: false })}
+        onChange={(e) => draftStore.setFor(slug, { text: e.target.value, agentStaged: false })}
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void send();
         }}

@@ -4,8 +4,21 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Join the techfren community from your browser or inbox — no Discord account needed." />
+    <meta name="theme-color" content="#09090b" />
+    <!-- Between these markers is the default metadata. convex/staticSite.ts
+         replaces this whole block per route on the way out, so a link to a
+         channel unfurls as that channel — crawlers never run the SPA. Keep the
+         markers: without them the server can only rewrite the title element,
+         and that fallback must not find a title tag written inside a comment. -->
+    <!--meta:start-->
     <title>techfriend community</title>
+    <meta name="description" content="Join the techfren community from your browser or inbox — no Discord account needed." />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="techfriend community" />
+    <meta property="og:title" content="techfriend community" />
+    <meta property="og:description" content="Join the techfren community from your browser or inbox — no Discord account needed." />
+    <meta name="twitter:card" content="summary" />
+    <!--meta:end-->
   </head>
   <body>
     <div id="root"></div>

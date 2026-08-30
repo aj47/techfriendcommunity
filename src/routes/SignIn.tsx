@@ -1,15 +1,18 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { useConvexAuth } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
+import { pageTitle, usePageMeta } from "../lib/head";
 
 export default function SignIn() {
   const { signIn } = useAuthActions();
   const { isAuthenticated } = useConvexAuth();
-  const nav = useNavigate();
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
-  if (isAuthenticated) nav("/settings");
+  usePageMeta(pageTitle("Sign in"));
+  // The old `if (isAuthenticated) nav("/settings")` ran during render, updating
+  // the router mid-render. <Navigate> performs the same redirect on commit.
+  if (isAuthenticated) return <Navigate to="/settings" replace />;
   return (
     <div className="mx-auto max-w-sm space-y-6">
       <div>

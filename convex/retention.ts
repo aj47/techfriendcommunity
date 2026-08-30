@@ -31,7 +31,7 @@ const MAX_BATCHES = 1000;
 
 // Returns null when the deployment is misconfigured. A bad value must never be
 // read as "retain nothing" — the sweep refuses and keeps everything instead.
-function retentionDays(): number | null {
+export function retentionDays(): number | null {
   const raw = process.env.MESSAGE_RETENTION_DAYS;
   if (raw === undefined || raw.trim() === "") return DEFAULT_RETENTION_DAYS;
   const days = Number(raw);

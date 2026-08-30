@@ -3,11 +3,13 @@ import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { timeAgo } from "../lib/format";
 import DailySummary from "../components/DailySummary";
+import { HOME_TITLE, usePageMeta } from "../lib/head";
 
 const FEED_LIMIT = 30;
 
 export default function Home() {
   const feed = useQuery(api.messages.latestAcross, { limit: FEED_LIMIT });
+  usePageMeta(HOME_TITLE);
 
   return (
     <div className="space-y-6">

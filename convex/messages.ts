@@ -55,8 +55,9 @@ export const list = query({
       .query("messages")
       .withIndex("by_channel_time", (q) => q.eq("channelId", channelId))
       .order("desc")
+      .filter((q) => q.eq(q.field("hiddenAt"), undefined))
       .paginate(paginationOpts);
-    return { ...page, page: await viewAll(ctx, page.page.filter((m) => !m.hiddenAt)) };
+    return { ...page, page: await viewAll(ctx, page.page) };
   },
 });
 
@@ -65,12 +66,14 @@ export const recent = query({
   handler: async (ctx, { slug, limit }) => {
     const channel = await ctx.db.query("channels").withIndex("by_slug", (q) => q.eq("slug", slug)).unique();
     if (!channel) return null;
+    const n = Math.min(Math.max(limit ?? 30, 1), 50);
     const rows = await ctx.db
       .query("messages")
       .withIndex("by_channel_time", (q) => q.eq("channelId", channel._id))
       .order("desc")
-      .take(Math.min(Math.max(limit ?? 30, 1), 50) + 10);
-    const kept = rows.filter((m) => !m.hiddenAt).slice(0, limit ?? 30).reverse();
+      .filter((q) => q.eq(q.field("hiddenAt"), undefined))
+      .take(n);
+    const kept = rows.reverse();
     return { channel: { slug: channel.slug, name: channel.name }, messages: await viewAll(ctx, kept) };
   },
 });
@@ -80,13 +83,15 @@ export const latestAcross = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, { limit }) => {
     const n = Math.min(Math.max(limit ?? 25, 1), 50);
-    // Over-read so hidden (deleted) messages can be dropped without a second trip.
-    const rows = await ctx.db.query("messages").withIndex("by_createdAt").order("desc").take(n + 15);
+    const rows = await ctx.db
+      .query("messages")
+      .withIndex("by_createdAt")
+      .order("desc")
+      .filter((q) => q.eq(q.field("hiddenAt"), undefined))
+      .take(n);
     const channels = new Map<string, { slug: string; name: string } | null>();
     const out = [];
     for (const m of rows) {
-      if (m.hiddenAt) continue;
-      if (out.length >= n) break;
       if (!channels.has(m.channelId)) {
         const c = await ctx.db.get(m.channelId);
         channels.set(m.channelId, c ? { slug: c.slug, name: c.name } : null);
@@ -108,10 +113,10 @@ export const search = query({
         const base = s.search("content", q);
         return args.channelId ? base.eq("channelId", args.channelId) : base;
       })
+      .filter((q) => q.eq(q.field("hiddenAt"), undefined))
       .take(Math.min(args.limit ?? 20, 50));
     const out = [];
     for (const m of rows) {
-      if (m.hiddenAt) continue;
       const c = await ctx.db.get(m.channelId);
       out.push({ ...(await view(ctx, m)), channel: c ? { slug: c.slug, name: c.name } : null });
     }

@@ -116,7 +116,10 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_discordUserId", ["discordUserId"])
-    .index("by_points", ["points"]),
+    .index("by_points", ["points"])
+    // The mirror's freshness is "when did the bot last push", i.e. the newest
+    // updatedAt — not the updatedAt of whichever row happens to be oldest.
+    .index("by_updatedAt", ["updatedAt"]),
 
   // The Discord bot's daily per-channel summaries, pushed by the bridge.
   // The bot posts the summary body into a Discord *thread*, and threads are not
@@ -147,6 +150,10 @@ export default defineSchema({
     summary: v.optional(v.string()),
     siteName: v.optional(v.string()),
     tags: v.array(v.string()),
+    // title + summary + siteName + tags + url, lowercased, maintained on write.
+    // The search index needs one field, and searching only `summary` missed
+    // every link whose topic appears in its title, tags, or domain.
+    searchText: v.optional(v.string()),
     sharedByUserId: v.optional(v.id("users")),
     messageId: v.optional(v.id("messages")),
     channelId: v.optional(v.id("channels")),
@@ -160,8 +167,8 @@ export default defineSchema({
   })
     .index("by_url", ["url"])
     .index("by_createdAt", ["createdAt"])
-    .searchIndex("search_resources", {
-      searchField: "summary",
+    .searchIndex("search_text", {
+      searchField: "searchText",
       filterFields: ["crawlStatus"],
     }),
 

@@ -105,10 +105,19 @@ export const pointsForDiscordUser = query({
 });
 
 // When the mirror was last pushed by the bot, so the UI can say so.
+//
+// This must read the *newest* updatedAt. An unindexed `.first()` returns the
+// oldest row by creation time, and since syncMirror only patches rows whose
+// points or name actually changed, that row's updatedAt can be weeks stale —
+// so the footer misreported the sync time exactly when the mirror was healthy.
 export const lastSyncedAt = query({
   args: {},
   handler: async (ctx) => {
-    const row = await ctx.db.query("leaderboard_mirror").first();
+    const row = await ctx.db
+      .query("leaderboard_mirror")
+      .withIndex("by_updatedAt")
+      .order("desc")
+      .first();
     return row?.updatedAt ?? null;
   },
 });
