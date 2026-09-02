@@ -93,14 +93,17 @@ export default function Resources() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
+      {/* Side by side the search box had nowhere to go on a phone: it shrank
+          to a slot too narrow to read a query in. Below 640px it gets its own
+          full-width row, at 16px so iOS doesn't zoom the page on focus. */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
         <h1 className="text-lg font-semibold">Resources</h1>
         <input
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Search links…"
           aria-label="Search shared links"
-          className="ml-auto rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm outline-none focus:border-zinc-600"
+          className="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-base outline-none focus:border-zinc-600 sm:ml-auto sm:w-72 sm:py-1.5 sm:text-sm"
         />
       </div>
       <p className="text-sm text-zinc-500">
@@ -111,11 +114,20 @@ export default function Resources() {
       ) : rows.length === 0 ? (
         <p className="text-zinc-500">{q ? `Nothing matches "${q}".` : "Nothing here yet."}</p>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2">
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {rows.map((r) => (
-            <li key={r.id} className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
-              <a href={r.url} target="_blank" rel="noreferrer" className="font-medium hover:underline">{r.title ?? r.url}</a>
-              <p className="mt-1 text-xs text-zinc-500">{r.siteName ?? hostOf(r.url)} · {timeAgo(r.createdAt)}</p>
+            <li key={r.id} className="min-w-0 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 sm:p-4">
+              {/* An untitled row falls back to its raw URL, which on a phone is
+                  wider than the screen unless it is allowed to break. */}
+              <a
+                href={r.url}
+                target="_blank"
+                rel="noreferrer"
+                className="block break-words font-medium hover:underline"
+              >
+                {r.title ?? r.url}
+              </a>
+              <p className="mt-1 break-words text-xs text-zinc-500">{r.siteName ?? hostOf(r.url)} · {timeAgo(r.createdAt)}</p>
               {r.crawlStatus === "pending" ? (
                 <p className="mt-2 text-sm text-amber-300/80">Crawling…</p>
               ) : r.crawlStatus === "failed" ? (
@@ -125,7 +137,7 @@ export default function Resources() {
               )}
               {r.tags.length ? (
                 <div className="mt-2 flex flex-wrap gap-1">
-                  {r.tags.map((t) => <span key={t} className="rounded bg-zinc-800 px-1.5 py-0.5 text-[11px] text-zinc-400">{t}</span>)}
+                  {r.tags.map((t) => <span key={t} className="max-w-full truncate rounded bg-zinc-800 px-1.5 py-0.5 text-[11px] text-zinc-400">{t}</span>)}
                 </div>
               ) : null}
             </li>

@@ -4,18 +4,35 @@ import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { linkify } from "../lib/linkify";
 
-// The bot writes summaries as light markdown (**bold**, "- " bullets, "## "
-// headings). Rendering it as React elements rather than HTML keeps the text
-// unescaped-by-construction — nothing here can inject markup. Bare URLs in the
-// summary text become real links via linkify(), same guarantee.
+// The bot writes summaries as light Discord markdown (**bold**, `code`, "- "
+// bullets, "## " headings, <t:...> timestamps). Rendering it as React elements
+// rather than HTML keeps the text unescaped-by-construction — nothing here can
+// inject markup. URLs and timestamps become real elements via linkify(), same
+// guarantee.
+
+// `code` spans and links, the two things that can appear inside a bold run —
+// the bot writes usernames as **`name`**, which used to reach the page with its
+// backticks intact.
+function codeAndLinks(text: string, key: string) {
+  return text.split(/(`[^`\n]+`)/g).map((part, i) =>
+    part.length > 2 && part.startsWith("`") && part.endsWith("`") ? (
+      <code key={`${key}-c${i}`} className="rounded bg-zinc-800/80 px-1 py-px text-[13px] text-zinc-200">
+        {part.slice(1, -1)}
+      </code>
+    ) : (
+      <span key={`${key}-t${i}`}>{linkify(part, `${key}-t${i}`)}</span>
+    ),
+  );
+}
+
 function inline(line: string, key: string) {
   return line.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
     part.startsWith("**") && part.endsWith("**") && part.length > 4 ? (
-      <strong key={`${key}-${i}`} className="font-semibold text-zinc-100">
-        {part.slice(2, -2)}
+      <strong key={`${key}-b${i}`} className="font-semibold text-zinc-100">
+        {codeAndLinks(part.slice(2, -2), `${key}-b${i}`)}
       </strong>
     ) : (
-      <span key={`${key}-${i}`}>{linkify(part, `${key}-${i}`)}</span>
+      <span key={`${key}-s${i}`}>{codeAndLinks(part, `${key}-s${i}`)}</span>
     ),
   );
 }

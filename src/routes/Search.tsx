@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { fmtTime } from "../lib/format";
-import { linkify } from "../lib/linkify";
+import MessageBody from "../components/MessageBody";
 import { pageTitle, usePageMeta } from "../lib/head";
 
 // The message search index and query already existed — they were reachable only
@@ -103,9 +103,7 @@ export default function Search() {
                   ) : null}
                   <span className="text-xs text-zinc-500">{fmtTime(m.createdAt)}</span>
                 </div>
-                <p className="mt-1 whitespace-pre-wrap break-words text-[15px] leading-relaxed text-zinc-200">
-                  {linkify(m.content, m.id)}
-                </p>
+                <MessageBody content={m.content} id={m.id} className="mt-1 text-zinc-200" />
               </li>
             ))}
           </ul>

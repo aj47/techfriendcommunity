@@ -1,7 +1,7 @@
 import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { fmtTime } from "../lib/format";
-import { linkify } from "../lib/linkify";
+import MessageBody from "./MessageBody";
 import { draftStore } from "../lib/draftStore";
 
 export type MessageView = {
@@ -144,7 +144,7 @@ export default function MessageList({ slug, messages, onLoadMore, canLoadMore, t
                     <span className="text-zinc-400">{m.replyTo.author}</span> — {m.replyTo.snippet}
                   </p>
                 ) : null}
-                <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed text-zinc-200">{linkify(m.content, m.id)}</p>
+                <MessageBody content={m.content} id={m.id} className="text-zinc-200" />
                 {m.thread ? (
                   <Link
                     to={`/channels/${m.thread.slug}`}
