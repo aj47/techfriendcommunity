@@ -15,13 +15,10 @@ export default function Home() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-xl border border-zinc-800 bg-gradient-to-br from-zinc-900 to-zinc-950 p-4 sm:p-6">
-        <h1 className="text-xl font-semibold sm:text-2xl">The techfren community, without the Discord app.</h1>
-        <p className="mt-2 max-w-2xl text-sm text-zinc-400 sm:text-base">
-          What the community is talking about right now, and what the bot made of yesterday. Post from here and it
-          shows up in Discord under your name — or subscribe to a channel digest and reply by email.
-        </p>
-      </section>
+      {/* The banner that used to carry this page's <h1> is gone; the heading
+          stays for screen readers and search, which have nothing else to name
+          the page by. */}
+      <h1 className="sr-only">The techfren community</h1>
 
       <DailySummary />
 
