@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -77,22 +77,44 @@ function prettyDate(date: string) {
   return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
 }
 
-const COLLAPSED_LINES = 14;
+// Collapsed height in pixels rather than a line count: one bullet that wraps
+// to four lines on a phone used to blow past a 14-line budget, and a summary
+// that happened to be exactly 14 lines long collapsed to nothing at all — it
+// rendered whole and simply looked truncated. Clipping by height and measuring
+// the rendered element decides this from what the reader actually sees.
+const COLLAPSED_PX = 260;
+// Slack, so a summary that overflows by a couple of lines doesn't get a
+// "show more" button that reveals almost nothing.
+const OVERFLOW_SLACK_PX = 48;
 
 export default function DailySummary() {
   const latest = useQuery(api.summaries.latest, { limit: 6 });
   const [channel, setChannel] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+
+  const entries = latest?.entries ?? [];
+  const active = entries.find((e) => e.channelSlug === channel) ?? entries[0];
+
+  // Re-measure when the text changes (channel tab, or a live summary push) and
+  // whenever the element resizes — a rotation or a font change moves the line
+  // count under us.
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const measure = () => setOverflows(el.scrollHeight > COLLAPSED_PX + OVERFLOW_SLACK_PX);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [active?.summaryText]);
 
   // Nothing to show until the bot has pushed a day's summaries. A card that
   // explains its own emptiness would be noise on the busiest page.
-  if (!latest || latest.entries.length === 0) return null;
+  if (!active || !latest) return null;
 
-  const entries = latest.entries;
-  const active = entries.find((e) => e.channelSlug === channel) ?? entries[0];
-  const lines = active.summaryText.split("\n");
-  const clipped = !expanded && lines.length > COLLAPSED_LINES;
-  const shown = clipped ? lines.slice(0, COLLAPSED_LINES).join("\n") : active.summaryText;
+  const clipped = overflows && !expanded;
 
   return (
     <section className="rounded-xl border border-zinc-800 bg-zinc-900/40">
@@ -121,10 +143,32 @@ export default function DailySummary() {
       ) : null}
 
       <div className="px-4 py-4 sm:px-5">
-        <SummaryText text={shown} />
-        {clipped ? (
-          <button onClick={() => setExpanded(true)} className="mt-3 text-sm text-emerald-400 hover:underline">
-            Read the rest
+        {/* The full summary is always in the DOM — find-in-page, screen readers
+            and copy-paste get all of it, and only the visual height is clipped.
+            A mask fades the last lines out instead of guillotining a bullet, so
+            the cut reads as "there is more" rather than "this is broken". */}
+        <div
+          ref={bodyRef}
+          className="overflow-hidden"
+          style={
+            clipped
+              ? {
+                  maxHeight: COLLAPSED_PX,
+                  maskImage: "linear-gradient(to bottom, #000 72%, transparent 100%)",
+                  WebkitMaskImage: "linear-gradient(to bottom, #000 72%, transparent 100%)",
+                }
+              : undefined
+          }
+        >
+          <SummaryText text={active.summaryText} />
+        </div>
+        {overflows ? (
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+            className="mt-3 text-sm text-emerald-400 hover:underline"
+          >
+            {expanded ? "Show less" : "Read the full summary"}
           </button>
         ) : null}
         <p className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">

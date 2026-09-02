@@ -5,6 +5,7 @@ import { timeAgo } from "../lib/format";
 import { linkify, mediaOf } from "../lib/linkify";
 import MediaEmbeds from "../components/MediaEmbeds";
 import DailySummary from "../components/DailySummary";
+import ResourcesTease from "../components/ResourcesTease";
 import { HOME_TITLE, usePageMeta } from "../lib/head";
 
 const FEED_LIMIT = 30;
@@ -21,6 +22,8 @@ export default function Home() {
       <h1 className="sr-only">The techfren community</h1>
 
       <DailySummary />
+
+      <ResourcesTease />
 
       <section>
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
