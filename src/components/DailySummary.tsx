@@ -82,10 +82,10 @@ function prettyDate(date: string) {
 // that happened to be exactly 14 lines long collapsed to nothing at all — it
 // rendered whole and simply looked truncated. Clipping by height and measuring
 // the rendered element decides this from what the reader actually sees.
-const COLLAPSED_PX = 260;
+const COLLAPSED_PX = 130;
 // Slack, so a summary that overflows by a couple of lines doesn't get a
 // "show more" button that reveals almost nothing.
-const OVERFLOW_SLACK_PX = 48;
+const OVERFLOW_SLACK_PX = 24;
 
 export default function DailySummary() {
   const latest = useQuery(api.summaries.latest, { limit: 6 });
