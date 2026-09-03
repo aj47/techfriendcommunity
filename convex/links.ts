@@ -44,9 +44,13 @@ function view(r: {
 // og:image, without spending a Firecrawl credit. Firecrawl returns one in its
 // metadata for most pages; this is the fallback for the ones it doesn't, and
 // the whole story for rows crawled before images were stored at all.
+// Attribute values are not always quoted: Docusaurus and other SSR head helpers
+// emit `<meta property=og:image content=https://…/>` bare, and requiring quotes
+// silently found nothing on every page they render. The lookahead is what keeps
+// an unquoted `og:image:alt` from matching as `og:image`.
 const OG_IMAGE_TAG =
-  /<meta[^>]+(?:property|name)\s*=\s*["'](?:og:image(?::secure_url|:url)?|twitter:image(?::src)?)["'][^>]*>/i;
-const CONTENT_ATTR = /content\s*=\s*["']([^"']+)["']/i;
+  /<meta[^>]+(?:property|name)\s*=\s*["']?(?:og:image(?::secure_url|:url)?|twitter:image(?::src)?)["']?(?=[\s/>])[^>]*>/i;
+const CONTENT_ATTR = /content\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/i;
 const UA = "techfriendcommunity-link-preview/1.0 (+https://www.techfriendcommunity.com)";
 
 // Only http(s), and only absolute after resolving against the page: a relative
@@ -74,8 +78,8 @@ export async function fetchOgImage(pageUrl: string): Promise<string | undefined>
     // og tags live in <head>, so the first slice of the document is all this
     // needs — and the cap keeps one enormous page from being read in full.
     const html = (await res.text()).slice(0, 300_000);
-    const tag = html.match(OG_IMAGE_TAG)?.[0];
-    return safeImageUrl(tag?.match(CONTENT_ATTR)?.[1], res.url || pageUrl);
+    const content = html.match(OG_IMAGE_TAG)?.[0].match(CONTENT_ATTR);
+    return safeImageUrl(content ? (content[1] ?? content[2] ?? content[3]) : undefined, res.url || pageUrl);
   } catch {
     // A dead host, a redirect loop, a timeout: a missing preview image is not
     // worth failing an enrichment that otherwise succeeded.
