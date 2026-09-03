@@ -3,23 +3,15 @@ import { Link } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { timeAgo } from "../lib/format";
+import { hostOf } from "../lib/linkPreview";
 
-// A glance at what the community has been reading, on the page people land on.
-// The full archive with search lives at /resources; this is the tease: three
-// rows folded, the rest one click away, and no summaries until it is open so
-// the fold stays short next to the daily summary above it.
+// A glance at what the community has been reading, for the chat shell's narrow
+// recap pane. The full archive with search lives at /resources, and the landing
+// page shows the same rows as preview cards (src/components/AlphaCards.tsx);
+// this is the tease: three rows folded, the rest one click away, and no
+// summaries until it is open so the fold stays short in a 320px column.
 const TEASE = 3;
 const LIMIT = 9;
-
-// Stored URLs are normalized on write, so this should always parse — but it
-// runs during render, and one bad row would take the landing page down.
-function hostOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-}
 
 export default function ResourcesTease() {
   const rows = useQuery(api.links.list, { limit: LIMIT });

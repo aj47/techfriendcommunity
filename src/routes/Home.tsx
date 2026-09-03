@@ -1,34 +1,33 @@
 import DailySummary from "../components/DailySummary";
-import ResourcesTease from "../components/ResourcesTease";
+import AlphaCards from "../components/AlphaCards";
 import LatestPreview from "../components/LatestPreview";
 import { HOME_TITLE, usePageMeta } from "../lib/head";
 
-// The landing page is a document, not the chat shell. Someone arriving cold
-// wants what happened and what the community found — so yesterday's highlights
-// and the latest alpha take the wide column, and the live conversation is a
-// short preview beside them, with the three-pane view a click away at /channels.
+// The landing page is a document, not the chat shell. What the community found
+// is the page — Latest Alpha takes the wide column as preview cards — with
+// yesterday's highlights folded into a banner above it and the conversation
+// running full-height alongside, one click from the real thing at /channels.
 export default function Home() {
   usePageMeta(HOME_TITLE);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <div>
         <h1 className="text-xl font-semibold sm:text-2xl">
           The techfren Discord<span className="text-zinc-500">, on the web</span>
         </h1>
         <p className="mt-1 text-sm text-zinc-400">
-          What happened yesterday, what the community has been reading, and a window into the chat.
+          What the community has been reading, what happened yesterday, and a window into the chat.
         </p>
       </div>
 
-      {/* Two thirds to the recap, one to the conversation. The recap cards each
-          render nothing at all until the bot has published something, so on a
-          cold deployment this collapses to the preview alone rather than to a
-          page of empty frames. */}
-      <div className="grid items-start gap-4 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
-          <DailySummary />
-          <ResourcesTease />
+      <DailySummary variant="banner" />
+
+      {/* No items-start: the row stretches, so the conversation column runs to
+          the same height as the cards beside it and scrolls inside itself. */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <AlphaCards />
         </div>
         <LatestPreview />
       </div>

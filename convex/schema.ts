@@ -149,6 +149,13 @@ export default defineSchema({
     title: v.optional(v.string()),
     summary: v.optional(v.string()),
     siteName: v.optional(v.string()),
+    // og:image, for the preview cards on the landing page. Optional forever:
+    // plenty of pages have none, and rows written before this existed keep
+    // rendering as a plain card.
+    imageUrl: v.optional(v.string()),
+    // When the og:image fetch last ran, image or no image. Without it the
+    // backfill would re-fetch every page that simply hasn't got one.
+    imageAttemptedAt: v.optional(v.number()),
     tags: v.array(v.string()),
     // title + summary + siteName + tags + url, lowercased, maintained on write.
     // The search index needs one field, and searching only `summary` missed

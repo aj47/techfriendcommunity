@@ -71,6 +71,24 @@ function SummaryText({ text }: { text: string }) {
   );
 }
 
+// The banner shows one line before you open it, so the markdown has to go: no
+// bullet dashes, no bold stars, no backticks, no heading hashes. Headings are
+// skipped outright — "## Highlights" is a label, not the news.
+function teaserOf(text: string): string {
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    if (!line || /^#{1,4}\s/.test(line)) continue;
+    const flat = line
+      .replace(/^[-*•]\s+/, "")
+      .replace(/\*\*/g, "")
+      .replace(/`/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (flat) return flat;
+  }
+  return "";
+}
+
 function prettyDate(date: string) {
   const [y, m, d] = date.split("-").map(Number);
   if (!y || !m || !d) return date;
@@ -87,7 +105,10 @@ const COLLAPSED_PX = 130;
 // "show more" button that reveals almost nothing.
 const OVERFLOW_SLACK_PX = 24;
 
-export default function DailySummary() {
+// "card" is the full panel the chat shell's recap pane shows. "banner" is the
+// landing page's slim strip: one line and a date, opening to the same text —
+// there, the summary is context for the page, not the page itself.
+export default function DailySummary({ variant = "card" }: { variant?: "card" | "banner" } = {}) {
   const latest = useQuery(api.summaries.latest, { limit: 6 });
   const [channel, setChannel] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
@@ -115,6 +136,57 @@ export default function DailySummary() {
   if (!active || !latest) return null;
 
   const clipped = overflows && !expanded;
+
+  if (variant === "banner") {
+    return (
+      <section className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900/40">
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-zinc-900/60 sm:px-4"
+        >
+          <span className="shrink-0 rounded bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-emerald-400">
+            Yesterday’s Highlights
+          </span>
+          {/* The teaser is the first thing to go when the strip gets narrow —
+              the label and the date are what make it read as a banner. */}
+          <span className="hidden min-w-0 flex-1 truncate text-sm text-zinc-400 sm:block">
+            {teaserOf(active.summaryText)}
+          </span>
+          <span className="ml-auto shrink-0 text-xs text-zinc-500 sm:ml-0">{prettyDate(latest.date)}</span>
+          <span aria-hidden className="shrink-0 text-[10px] text-zinc-500">
+            {expanded ? "▲" : "▼"}
+          </span>
+        </button>
+
+        {expanded ? (
+          <div className="border-t border-zinc-800 px-3 py-3 sm:px-4">
+            {entries.length > 1 ? (
+              <div className="mb-3 flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {entries.map((e) => (
+                  <button
+                    key={e.channelSlug ?? e.channelName}
+                    onClick={() => setChannel(e.channelSlug)}
+                    className={`shrink-0 rounded-full px-3 py-1 text-xs ${
+                      e === active ? "bg-zinc-100 text-zinc-900" : "bg-zinc-800 text-zinc-400 hover:text-zinc-100"
+                    }`}
+                  >
+                    #{e.channelName}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {/* Open means open: no height clamp here, unlike the card. */}
+            <SummaryText text={active.summaryText} />
+            <p className="mt-3 text-xs text-zinc-500">
+              #{active.channelName} · {active.messageCount} messages · {active.activeUsers} people
+            </p>
+          </div>
+        ) : null}
+      </section>
+    );
+  }
 
   return (
     <section className="rounded-xl border border-zinc-800 bg-zinc-900/40">

@@ -31,12 +31,56 @@ function searchTextFor(r: {
 
 function view(r: {
   _id: Id<"link_resources">; url: string; title?: string; summary?: string; siteName?: string;
-  tags: string[]; crawlStatus: "pending" | "done" | "failed"; createdAt: number; channelId?: Id<"channels">;
+  imageUrl?: string; tags: string[]; crawlStatus: "pending" | "done" | "failed"; createdAt: number;
+  channelId?: Id<"channels">;
 }) {
   return {
     id: r._id, url: r.url, title: r.title ?? null, summary: r.summary ?? null,
-    siteName: r.siteName ?? null, tags: r.tags, crawlStatus: r.crawlStatus, createdAt: r.createdAt,
+    siteName: r.siteName ?? null, imageUrl: r.imageUrl ?? null, tags: r.tags,
+    crawlStatus: r.crawlStatus, createdAt: r.createdAt,
   };
+}
+
+// og:image, without spending a Firecrawl credit. Firecrawl returns one in its
+// metadata for most pages; this is the fallback for the ones it doesn't, and
+// the whole story for rows crawled before images were stored at all.
+const OG_IMAGE_TAG =
+  /<meta[^>]+(?:property|name)\s*=\s*["'](?:og:image(?::secure_url|:url)?|twitter:image(?::src)?)["'][^>]*>/i;
+const CONTENT_ATTR = /content\s*=\s*["']([^"']+)["']/i;
+const UA = "techfriendcommunity-link-preview/1.0 (+https://www.techfriendcommunity.com)";
+
+// Only http(s), and only absolute after resolving against the page: a relative
+// or data: og:image would render as a broken card at best.
+function safeImageUrl(raw: string | undefined, base?: string): string | undefined {
+  if (!raw) return undefined;
+  try {
+    const u = new URL(raw, base);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return undefined;
+    return u.href.slice(0, 2000);
+  } catch {
+    return undefined;
+  }
+}
+
+export async function fetchOgImage(pageUrl: string): Promise<string | undefined> {
+  try {
+    const res = await fetch(pageUrl, {
+      redirect: "follow",
+      headers: { "user-agent": UA, accept: "text/html,application/xhtml+xml" },
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!res.ok) return undefined;
+    if (!(res.headers.get("content-type") ?? "").includes("html")) return undefined;
+    // og tags live in <head>, so the first slice of the document is all this
+    // needs — and the cap keeps one enormous page from being read in full.
+    const html = (await res.text()).slice(0, 300_000);
+    const tag = html.match(OG_IMAGE_TAG)?.[0];
+    return safeImageUrl(tag?.match(CONTENT_ATTR)?.[1], res.url || pageUrl);
+  } catch {
+    // A dead host, a redirect loop, a timeout: a missing preview image is not
+    // worth failing an enrichment that otherwise succeeded.
+    return undefined;
+  }
 }
 
 // Record URLs shared in a message as pending resources and schedule enrichment.
@@ -132,9 +176,10 @@ export const finish = internalMutation({
     title: v.optional(v.string()),
     summary: v.optional(v.string()),
     siteName: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
     tags: v.array(v.string()),
   },
-  handler: async (ctx, { resourceId, title, summary, siteName, tags }) => {
+  handler: async (ctx, { resourceId, title, summary, siteName, imageUrl, tags }) => {
     const r = await ctx.db.get(resourceId);
     if (!r) return;
     const next = {
@@ -142,7 +187,8 @@ export const finish = internalMutation({
       tags: tags.slice(0, 6).map((t) => t.toLowerCase().slice(0, 30)),
     };
     await ctx.db.patch(resourceId, {
-      ...next, crawlStatus: "done", failReason: undefined,
+      ...next, imageUrl: safeImageUrl(imageUrl), crawlStatus: "done", failReason: undefined,
+      // searchText deliberately ignores imageUrl: nobody searches for a CDN path.
       searchText: searchTextFor({ url: r.url, ...next }),
     });
   },
@@ -172,6 +218,56 @@ export const backfillSearchText = internalMutation({
       cursor: page.continueCursor, updated: n,
     });
     return { updated: n, done: false };
+  },
+});
+
+// One-shot backfill for rows crawled before imageUrl existed: reads each page's
+// <head> directly rather than re-crawling, so it costs no Firecrawl credits.
+// imageAttemptedAt is stamped on every row it touches, so a page that simply
+// has no og:image is not retried by the next run.
+export const backfillImages = internalAction({
+  args: { at: v.optional(v.string()), found: v.optional(v.number()), seen: v.optional(v.number()) },
+  // Annotated because the handler schedules itself: without an explicit return
+  // type its own type is part of its own inference and TypeScript gives up.
+  handler: async (
+    ctx,
+    { at, found = 0, seen = 0 },
+  ): Promise<{ seen: number; found: number; done: boolean }> => {
+    const page = await ctx.runQuery(internal.links.pageWithoutImage, { at });
+    let f = found;
+    for (const row of page.rows) {
+      const imageUrl = await fetchOgImage(row.url);
+      if (imageUrl) f++;
+      await ctx.runMutation(internal.links.setImage, { resourceId: row.id, imageUrl });
+    }
+    const n = seen + page.rows.length;
+    if (page.isDone) {
+      console.log("links: image backfill complete", { seen: n, found: f });
+      return { seen: n, found: f, done: true };
+    }
+    await ctx.scheduler.runAfter(0, internal.links.backfillImages, { at: page.next, found: f, seen: n });
+    return { seen: n, found: f, done: false };
+  },
+});
+
+export const pageWithoutImage = internalQuery({
+  args: { at: v.optional(v.string()) },
+  handler: async (ctx, { at }) => {
+    // 25 a time: each row costs one outbound fetch, and an action that tries to
+    // pull hundreds of pages before returning is an action that times out.
+    const page = await ctx.db.query("link_resources").paginate({ cursor: at ?? null, numItems: 25 });
+    return {
+      rows: page.page.filter((r) => !r.imageUrl && !r.imageAttemptedAt).map((r) => ({ id: r._id, url: r.url })),
+      next: page.continueCursor,
+      isDone: page.isDone,
+    };
+  },
+});
+
+export const setImage = internalMutation({
+  args: { resourceId: v.id("link_resources"), imageUrl: v.optional(v.string()) },
+  handler: async (ctx, { resourceId, imageUrl }) => {
+    await ctx.db.patch(resourceId, { imageUrl: safeImageUrl(imageUrl), imageAttemptedAt: Date.now() });
   },
 });
 
@@ -211,12 +307,17 @@ export const enrich = internalAction({
         maxAge: 3_600_000,
       });
       const json = (doc.json ?? {}) as { title?: string; summary?: string; siteName?: string; tags?: string[] };
-      const meta = (doc.metadata ?? {}) as { title?: string; description?: string; ogSiteName?: string; siteName?: string };
+      const meta = (doc.metadata ?? {}) as {
+        title?: string; description?: string; ogSiteName?: string; siteName?: string;
+        ogImage?: string; "og:image"?: string; image?: string;
+      };
       const summary = json.summary ?? meta.description ?? doc.markdown?.replace(/\s+/g, " ").slice(0, 400);
+      const scraped = safeImageUrl(meta.ogImage ?? meta["og:image"] ?? meta.image, r.url);
       await ctx.runMutation(internal.links.finish, {
         resourceId,
         title: json.title ?? meta.title,
         summary,
+        imageUrl: scraped ?? (await fetchOgImage(r.url)),
         siteName: json.siteName ?? meta.ogSiteName ?? meta.siteName ?? new URL(r.url).hostname,
         tags: Array.isArray(json.tags) ? json.tags.filter((t) => typeof t === "string") : [],
       });
