@@ -3,6 +3,7 @@ import { useConvex } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { draftStore } from "../lib/draftStore";
 import { fmtTime } from "../lib/format";
+import { plainMentions } from "../lib/linkify";
 import type { MessageView } from "../components/MessageList";
 import { text, useWebMCPTool } from "./useWebMCPTool";
 
@@ -27,7 +28,9 @@ export function ChannelTools({ slug, channelName, messages }: { slug: string; ch
         const n = Math.min(Math.max(Math.floor(limit ?? 30), 1), 50);
         const rows = latest.current.slice(-n);
         if (rows.length === 0) return text(`#${channelName} has no messages yet.`);
-        const lines = rows.map((m) => `${m.author.name} — ${fmtTime(m.createdAt)}${m.source !== "discord" ? ` (via ${m.source})` : ""}\n${m.content}`);
+        // An agent reading this gets names, not snowflakes — <@123> is as
+        // opaque to it as it is to a person.
+        const lines = rows.map((m) => `${m.author.name} — ${fmtTime(m.createdAt)}${m.source !== "discord" ? ` (via ${m.source})` : ""}\n${plainMentions(m.content, m.mentions)}`);
         return text(`#${channelName}, ${rows.length} most recent messages (oldest first):\n\n${lines.join("\n\n")}`);
       },
     },
@@ -99,7 +102,7 @@ export function ChannelTools({ slug, channelName, messages }: { slug: string; ch
         if (!channel) return text(`Channel ${slug} not found.`);
         const rows = await convex.query(api.messages.search, { query, channelId: channel.id, limit: 15 });
         if (rows.length === 0) return text(`No messages in #${channelName} match "${query}".`);
-        return text(rows.map((m) => `${m.author.name} — ${fmtTime(m.createdAt)}\n${m.content}`).join("\n\n"));
+        return text(rows.map((m) => `${m.author.name} — ${fmtTime(m.createdAt)}\n${plainMentions(m.content, m.mentions)}`).join("\n\n"));
       },
     },
     [slug, channelName],

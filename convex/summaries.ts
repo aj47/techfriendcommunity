@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, type MutationCtx } from "./_generated/server";
+import { mentionResolver, type MentionResolver } from "./lib/mentions";
 
 // Daily summaries are written by the Discord bot's summarizer, not here. The
 // bot posts each one into a Discord thread — threads are outside what the
@@ -74,6 +75,7 @@ export async function syncSummaries(ctx: MutationCtx, rows: SummaryRow[]) {
 async function withSlug(
   ctx: { db: { get: (id: any) => Promise<any> } },
   row: { channelId: any; channelName: string; date: string; summaryText: string; messageCount: number; activeUsers: number; createdAt: number },
+  resolve: MentionResolver,
 ) {
   const channel = await ctx.db.get(row.channelId);
   return {
@@ -84,6 +86,9 @@ async function withSlug(
     messageCount: row.messageCount,
     activeUsers: row.activeUsers,
     createdAt: row.createdAt,
+    // The bot quotes people, so a summary can carry the same <@id> tokens a
+    // message does.
+    mentions: await resolve(row.summaryText),
   };
 }
 
@@ -101,8 +106,9 @@ export const latest = query({
       .withIndex("by_date", (q) => q.eq("date", newest.date))
       .collect();
     sameDay.sort((a, b) => b.messageCount - a.messageCount);
+    const resolve = mentionResolver(ctx);
     const entries = [];
-    for (const row of sameDay.slice(0, n)) entries.push(await withSlug(ctx, row));
+    for (const row of sameDay.slice(0, n)) entries.push(await withSlug(ctx, row, resolve));
     return { date: newest.date, entries };
   },
 });
@@ -118,14 +124,20 @@ export const forChannel = query({
       .withIndex("by_channel_date", (q) => q.eq("channelId", channel._id))
       .order("desc")
       .take(Math.min(Math.max(limit ?? 7, 1), 30));
-    return rows.map((r) => ({
-      channelSlug: channel.slug,
-      channelName: channel.name,
-      date: r.date,
-      summaryText: r.summaryText,
-      messageCount: r.messageCount,
-      activeUsers: r.activeUsers,
-      createdAt: r.createdAt,
-    }));
+    const resolve = mentionResolver(ctx);
+    const out = [];
+    for (const r of rows) {
+      out.push({
+        channelSlug: channel.slug,
+        channelName: channel.name,
+        date: r.date,
+        summaryText: r.summaryText,
+        messageCount: r.messageCount,
+        activeUsers: r.activeUsers,
+        createdAt: r.createdAt,
+        mentions: await resolve(r.summaryText),
+      });
+    }
+    return out;
   },
 });

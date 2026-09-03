@@ -8,6 +8,7 @@ import { rateLimiter } from "./lib/rateLimits";
 import { extractUrls } from "./lib/urls";
 import { extractEmail, sanitizeEmailReply } from "./lib/sanitizeEmailReply";
 import { enqueueLinks } from "./links";
+import { mentionResolver, plainMentions } from "./lib/mentions";
 
 // The app's inbox. Digests go out from it; replies come back to it.
 export const agentmail: AgentMail = new AgentMail(components.agentmail, {
@@ -76,13 +77,17 @@ async function buildDigest(ctx: MutationCtx, user: Doc<"users">, channel: Doc<"c
     .take(40);
   const msgs = rows.filter((m) => !m.hiddenAt).reverse();
   if (msgs.length === 0) return null;
+  // A digest is plain text, so Discord's <@id> mentions get substituted for
+  // the names they stand for rather than mailed out as snowflakes.
+  const resolve = mentionResolver(ctx);
+  const mentions = await resolve(...msgs.map((m) => m.content));
   // Standings come from the Discord bot's leaderboard, mirrored here.
   const top = await ctx.db.query("leaderboard_mirror").withIndex("by_points").order("desc").take(3);
   const topLines = top.map((t, i) => `${i + 1}. ${t.name} — ${t.points} pts`);
   const body = [
     `#${channel.name} — ${msgs.length} new message${msgs.length === 1 ? "" : "s"}`,
     "",
-    ...msgs.map((m) => `${m.authorDisplay.name}: ${m.content.replace(/\s+/g, " ").slice(0, 300)}`),
+    ...msgs.map((m) => `${m.authorDisplay.name}: ${plainMentions(m.content, mentions).replace(/\s+/g, " ").slice(0, 300)}`),
     "",
     topLines.length ? `This week's top members:\n${topLines.join("\n")}` : "",
     "",

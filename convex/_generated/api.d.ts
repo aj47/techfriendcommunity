@@ -15,6 +15,7 @@ import type * as discordIngest from "../discordIngest.js";
 import type * as discordOut from "../discordOut.js";
 import type * as email from "../email.js";
 import type * as http from "../http.js";
+import type * as lib_mentions from "../lib/mentions.js";
 import type * as lib_rateLimits from "../lib/rateLimits.js";
 import type * as lib_requireUser from "../lib/requireUser.js";
 import type * as lib_sanitizeEmailReply from "../lib/sanitizeEmailReply.js";
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   discordOut: typeof discordOut;
   email: typeof email;
   http: typeof http;
+  "lib/mentions": typeof lib_mentions;
   "lib/rateLimits": typeof lib_rateLimits;
   "lib/requireUser": typeof lib_requireUser;
   "lib/sanitizeEmailReply": typeof lib_sanitizeEmailReply;

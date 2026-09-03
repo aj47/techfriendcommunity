@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { linkify } from "../lib/linkify";
+import { linkify, type Mentions } from "../lib/linkify";
 
 // The bot writes summaries as light Discord markdown (**bold**, `code`, "- "
 // bullets, "## " headings, <t:...> timestamps). Rendering it as React elements
@@ -13,31 +13,31 @@ import { linkify } from "../lib/linkify";
 // `code` spans and links, the two things that can appear inside a bold run —
 // the bot writes usernames as **`name`**, which used to reach the page with its
 // backticks intact.
-function codeAndLinks(text: string, key: string) {
+function codeAndLinks(text: string, key: string, mentions?: Mentions) {
   return text.split(/(`[^`\n]+`)/g).map((part, i) =>
     part.length > 2 && part.startsWith("`") && part.endsWith("`") ? (
       <code key={`${key}-c${i}`} className="rounded bg-zinc-800/80 px-1 py-px text-[13px] text-zinc-200">
         {part.slice(1, -1)}
       </code>
     ) : (
-      <span key={`${key}-t${i}`}>{linkify(part, `${key}-t${i}`)}</span>
+      <span key={`${key}-t${i}`}>{linkify(part, `${key}-t${i}`, mentions)}</span>
     ),
   );
 }
 
-function inline(line: string, key: string) {
+function inline(line: string, key: string, mentions?: Mentions) {
   return line.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
     part.startsWith("**") && part.endsWith("**") && part.length > 4 ? (
       <strong key={`${key}-b${i}`} className="font-semibold text-zinc-100">
-        {codeAndLinks(part.slice(2, -2), `${key}-b${i}`)}
+        {codeAndLinks(part.slice(2, -2), `${key}-b${i}`, mentions)}
       </strong>
     ) : (
-      <span key={`${key}-s${i}`}>{codeAndLinks(part, `${key}-s${i}`)}</span>
+      <span key={`${key}-s${i}`}>{codeAndLinks(part, `${key}-s${i}`, mentions)}</span>
     ),
   );
 }
 
-function SummaryText({ text }: { text: string }) {
+function SummaryText({ text, mentions }: { text: string; mentions?: Mentions }) {
   return (
     <div className="space-y-1.5 text-[15px] leading-relaxed text-zinc-300">
       {text.split("\n").map((raw, i) => {
@@ -48,7 +48,7 @@ function SummaryText({ text }: { text: string }) {
         if (heading) {
           return (
             <h4 key={key} className="pt-1 text-sm font-semibold uppercase tracking-wide text-zinc-400">
-              {inline(heading[1], key)}
+              {inline(heading[1], key, mentions)}
             </h4>
           );
         }
@@ -57,13 +57,13 @@ function SummaryText({ text }: { text: string }) {
           return (
             <div key={key} className="flex gap-2">
               <span aria-hidden className="mt-2 h-1 w-1 shrink-0 rounded-full bg-zinc-600" />
-              <p className="min-w-0 break-words">{inline(bullet[1], key)}</p>
+              <p className="min-w-0 break-words">{inline(bullet[1], key, mentions)}</p>
             </div>
           );
         }
         return (
           <p key={key} className="break-words">
-            {inline(line, key)}
+            {inline(line, key, mentions)}
           </p>
         );
       })}
@@ -160,7 +160,7 @@ export default function DailySummary() {
               : undefined
           }
         >
-          <SummaryText text={active.summaryText} />
+          <SummaryText text={active.summaryText} mentions={active.mentions} />
         </div>
         {overflows ? (
           <button

@@ -2,6 +2,7 @@ import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "
 import { Link } from "react-router-dom";
 import { fmtTime } from "../lib/format";
 import MessageBody from "./MessageBody";
+import { plainMentions, type Mentions } from "../lib/linkify";
 import { draftStore } from "../lib/draftStore";
 
 export type MessageView = {
@@ -15,6 +16,8 @@ export type MessageView = {
   editedAt: number | null;
   replyTo?: { id: string; author: string; snippet: string } | null;
   thread?: { slug: string; name: string; messageCount: number } | null;
+  // Discord's <@id> / <#id> tokens resolved to names, from the query.
+  mentions?: Mentions;
 };
 
 const sourceLabel: Record<MessageView["source"], string> = { discord: "", web: "web", email: "email" };
@@ -141,10 +144,10 @@ export default function MessageList({ slug, messages, onLoadMore, canLoadMore, t
                 </div>
                 {m.replyTo ? (
                   <p className="mt-0.5 truncate border-l-2 border-zinc-700 pl-2 text-xs text-zinc-500">
-                    <span className="text-zinc-400">{m.replyTo.author}</span> — {m.replyTo.snippet}
+                    <span className="text-zinc-400">{m.replyTo.author}</span> — {plainMentions(m.replyTo.snippet, m.mentions)}
                   </p>
                 ) : null}
-                <MessageBody content={m.content} id={m.id} className="text-zinc-200" />
+                <MessageBody content={m.content} id={m.id} mentions={m.mentions} className="text-zinc-200" />
                 {m.thread ? (
                   <Link
                     to={`/channels/${m.thread.slug}`}

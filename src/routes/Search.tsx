@@ -103,7 +103,7 @@ export default function Search() {
                   ) : null}
                   <span className="text-xs text-zinc-500">{fmtTime(m.createdAt)}</span>
                 </div>
-                <MessageBody content={m.content} id={m.id} className="mt-1 text-zinc-200" />
+                <MessageBody content={m.content} id={m.id} mentions={m.mentions} className="mt-1 text-zinc-200" />
               </li>
             ))}
           </ul>

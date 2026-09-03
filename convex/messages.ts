@@ -11,10 +11,14 @@ import { syncChannels, type ChannelSyncInput } from "./channels";
 import { syncMirror } from "./points";
 import { syncSummaries } from "./summaries";
 import { enqueueLinks } from "./links";
+import { mentionResolver, type MentionResolver } from "./lib/mentions";
+import type { DatabaseReader } from "./_generated/server";
 
 const MAX_LEN = 2000;
 
-async function view(ctx: { db: { get: (id: any) => Promise<any> } }, m: Doc<"messages">) {
+type ViewCtx = { db: DatabaseReader };
+
+async function view(ctx: ViewCtx, m: Doc<"messages">, resolve: MentionResolver) {
   let replyTo: { id: Id<"messages">; author: string; snippet: string } | null = null;
   if (m.replyToMessageId) {
     const target = await ctx.db.get(m.replyToMessageId);
@@ -39,12 +43,17 @@ async function view(ctx: { db: { get: (id: any) => Promise<any> } }, m: Doc<"mes
     urls: m.urls,
     replyTo,
     thread,
+    // Discord's <@id> / <#id> tokens, resolved to names for whoever renders
+    // this. The quoted reply is scanned too — it is a slice of another
+    // message and carries the same tokens.
+    mentions: await resolve(m.content, replyTo?.snippet),
   };
 }
 
-async function viewAll(ctx: { db: { get: (id: any) => Promise<any> } }, rows: Doc<"messages">[]) {
+async function viewAll(ctx: ViewCtx, rows: Doc<"messages">[]) {
+  const resolve = mentionResolver(ctx);
   const out = [];
-  for (const m of rows) out.push(await view(ctx, m));
+  for (const m of rows) out.push(await view(ctx, m, resolve));
   return out;
 }
 
@@ -90,13 +99,14 @@ export const latestAcross = query({
       .filter((q) => q.eq(q.field("hiddenAt"), undefined))
       .take(n);
     const channels = new Map<string, { slug: string; name: string } | null>();
+    const resolve = mentionResolver(ctx);
     const out = [];
     for (const m of rows) {
       if (!channels.has(m.channelId)) {
         const c = await ctx.db.get(m.channelId);
         channels.set(m.channelId, c ? { slug: c.slug, name: c.name } : null);
       }
-      out.push({ ...(await view(ctx, m)), channel: channels.get(m.channelId) ?? null });
+      out.push({ ...(await view(ctx, m, resolve)), channel: channels.get(m.channelId) ?? null });
     }
     return out;
   },
@@ -115,10 +125,11 @@ export const search = query({
       })
       .filter((q) => q.eq(q.field("hiddenAt"), undefined))
       .take(Math.min(args.limit ?? 20, 50));
+    const resolve = mentionResolver(ctx);
     const out = [];
     for (const m of rows) {
       const c = await ctx.db.get(m.channelId);
-      out.push({ ...(await view(ctx, m)), channel: c ? { slug: c.slug, name: c.name } : null });
+      out.push({ ...(await view(ctx, m, resolve)), channel: c ? { slug: c.slug, name: c.name } : null });
     }
     return out;
   },

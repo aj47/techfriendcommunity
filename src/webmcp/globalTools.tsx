@@ -1,6 +1,7 @@
 import { useConvex, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { fmtTime, timeAgo } from "../lib/format";
+import { plainMentions } from "../lib/linkify";
 import { text, useWebMCPTool } from "./useWebMCPTool";
 
 // Tools available on every page: observe the community, search it, know who you are.
@@ -65,7 +66,7 @@ export function GlobalTools() {
         }
         const rows = await convex.query(api.messages.search, { query, channelId, limit: 15 });
         if (rows.length === 0) return text(`No messages match "${query}".`);
-        return text(rows.map((m) => `[#${m.channel?.name ?? "?"}] ${m.author.name} — ${fmtTime(m.createdAt)}\n${m.content}`).join("\n\n"));
+        return text(rows.map((m) => `[#${m.channel?.name ?? "?"}] ${m.author.name} — ${fmtTime(m.createdAt)}\n${plainMentions(m.content, m.mentions)}`).join("\n\n"));
       },
     },
     [channels],

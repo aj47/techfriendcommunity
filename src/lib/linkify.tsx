@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { fmtTime, timeAgo } from "./format";
 
 // People paste bare URLs into Discord all day, and the bot's summaries quote
@@ -14,8 +15,15 @@ import { fmtTime, timeAgo } from "./format";
 //   <t:1788286014:t>  a Discord timestamp. Only Discord's client renders these;
 //                     everywhere else they are unreadable machine text.
 //   <url> / url       a bare URL, optionally inside those same brackets.
+//   <@123> <#123>     a mention. Discord ships the snowflake and nothing else,
+//                     so the name comes from the `mentions` map the server
+//                     resolved (convex/lib/mentions.ts) — without it the page
+//                     showed people a raw id.
+//   <:pepe:123>       a custom emoji, served as an image by Discord's CDN.
+//
+// New alternatives go on the end: mediaOf() reads this match by group number.
 const TOKEN =
-  /\[([^\]\n]{1,300})\]\(\s*<?(https?:\/\/[^\s<>)]+)>?\s*\)|<t:(-?\d{1,14})(?::([tTdDfFR]))?>|(<?)((?:https?:\/\/|www\.)[^\s<>]+)(>?)/gi;
+  /\[([^\]\n]{1,300})\]\(\s*<?(https?:\/\/[^\s<>)]+)>?\s*\)|<t:(-?\d{1,14})(?::([tTdDfFR]))?>|(<?)((?:https?:\/\/|www\.)[^\s<>]+)(>?)|<(@!?|@&|#)(\d{15,25})>|<(a?):(\w{2,32}):(\d{15,25})>/gi;
 
 // Trailing punctuation is nearly always the sentence's, not the link's. A
 // closing bracket only counts as trailing when it is unbalanced, so
@@ -89,15 +97,67 @@ function discordTime(seconds: number, style: string): { label: string; ms: numbe
   }
 }
 
+export type Mention = { kind: "user" | "channel"; name: string; slug?: string };
+// Keyed "@<id>" / "#<id>", exactly as the server built it.
+export type Mentions = Record<string, Mention>;
+
+const CHIP = "rounded px-1 py-px font-medium";
+const KNOWN_CHIP = `${CHIP} bg-emerald-400/10 text-emerald-300`;
+const UNKNOWN_CHIP = `${CHIP} bg-zinc-700/40 text-zinc-400`;
+
+// A mention the server could name renders as the name; one it could not is
+// still worth marking as a mention — "@someone said hi" reads, a snowflake
+// does not. An id goes unresolved when the person has never appeared in a
+// mirrored channel and has never been scored by the bot, so it is rare.
+function mention(sigil: string, id: string, mentions: Mentions | undefined, key: string): ReactNode {
+  const prefix = sigil === "#" ? "#" : "@";
+  const hit = mentions?.[`${prefix}${id}`];
+  if (sigil === "@&") {
+    return (
+      <span key={key} className={UNKNOWN_CHIP} title="A Discord role">
+        @role
+      </span>
+    );
+  }
+  if (!hit) {
+    return (
+      <span key={key} className={UNKNOWN_CHIP} title={sigil === "#" ? "A channel this site doesn't mirror" : `Discord user ${id}`}>
+        {prefix}
+        {sigil === "#" ? "channel" : "someone"}
+      </span>
+    );
+  }
+  if (hit.kind === "channel" && hit.slug) {
+    return (
+      <Link
+        key={key}
+        to={`/channels/${hit.slug}`}
+        onClick={(e) => e.stopPropagation()}
+        className={`${KNOWN_CHIP} hover:bg-emerald-400/20`}
+      >
+        #{hit.name}
+      </Link>
+    );
+  }
+  return (
+    <span key={key} className={KNOWN_CHIP}>
+      {prefix}
+      {hit.name}
+    </span>
+  );
+}
+
 // `keyPrefix` only has to be unique among siblings, so callers pass whatever
-// they already key that block by (message id, line index).
-export function linkify(text: string, keyPrefix = "lk"): ReactNode[] {
+// they already key that block by (message id, line index). `mentions` is the
+// map that came down with the message; without it mentions still render, just
+// as "@someone".
+export function linkify(text: string, keyPrefix = "lk", mentions?: Mentions): ReactNode[] {
   const nodes: ReactNode[] = [];
   let cursor = 0;
   let n = 0;
   TOKEN.lastIndex = 0;
   for (let m = TOKEN.exec(text); m; m = TOKEN.exec(text)) {
-    const [whole, mdLabel, mdUrl, tsSeconds, tsStyle, open, bare, close] = m;
+    const [whole, mdLabel, mdUrl, tsSeconds, tsStyle, open, bare, close, mentionSigil, mentionId, emojiAnimated, emojiName, emojiId] = m;
     let node: ReactNode;
     // Where the plain text before this token ends, and where the token ends.
     let textEnd = m.index;
@@ -117,6 +177,21 @@ export function linkify(text: string, keyPrefix = "lk"): ReactNode[] {
         >
           {t.label}
         </time>
+      );
+    } else if (mentionId) {
+      node = mention(mentionSigil, mentionId, mentions, `${keyPrefix}-${n++}`);
+    } else if (emojiId) {
+      // Discord serves custom emoji straight off its CDN by id; animated ones
+      // are gifs. Sized in em so it rides the line it sits on.
+      node = (
+        <img
+          key={`${keyPrefix}-${n++}`}
+          src={`https://cdn.discordapp.com/emojis/${emojiId}.${emojiAnimated ? "gif" : "png"}?size=48`}
+          alt={`:${emojiName}:`}
+          title={`:${emojiName}:`}
+          loading="lazy"
+          className="inline-block h-[1.25em] w-[1.25em] align-[-0.2em]"
+        />
       );
     } else {
       const url = trimTrailing(bare);
@@ -178,4 +253,17 @@ export function mediaOf(text: string): { media: Media[]; only: boolean } {
   }
   rest += text.slice(cursor);
   return { media, only: media.length > 0 && rest.trim() === "" };
+}
+
+// The same substitution where React elements have nowhere to go: WebMCP tool
+// output, a reply's one-line quote. Mirrors convex/lib/mentions.ts.
+const PLAIN_TOKEN = /<(@!?|@&|#)(\d{15,25})>/g;
+
+export function plainMentions(text: string, mentions?: Mentions): string {
+  return text.replace(PLAIN_TOKEN, (_whole, sigil: string, id: string) => {
+    if (sigil === "@&") return "@role";
+    const prefix = sigil === "#" ? "#" : "@";
+    const hit = mentions?.[`${prefix}${id}`];
+    return hit ? `${prefix}${hit.name}` : sigil === "#" ? "#channel" : "@someone";
+  });
 }
