@@ -16,6 +16,9 @@ const TYPES = {
   ".png": "image/png",
   ".ico": "image/x-icon",
   ".txt": "text/plain; charset=utf-8",
+  // Browsers reject a manifest served as anything else, and the fallback below
+  // is application/octet-stream.
+  ".webmanifest": "application/manifest+json",
 };
 
 function walk(dir) {

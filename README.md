@@ -36,6 +36,18 @@ npx convex dev        # dev deployment + codegen (or CONVEX_AGENT_MODE=anonymous
 npm run dev           # Vite on 0.0.0.0:5173
 ```
 
+### Brand assets
+
+The favicon, app icons and the `og.png` link-preview card in `public/` are
+generated from the SVG sources in `assets/brand/` by `scripts/gen-brand.sh`.
+The outputs are committed, so the build needs none of its tooling — run it only
+after editing a source SVG:
+
+```bash
+sudo apt-get install -y librsvg2-bin imagemagick pngquant optipng fonts-inter
+./scripts/gen-brand.sh
+```
+
 ## Setup checklist (production)
 
 1. **Convex**: `npx convex login`, then `npx convex dev --once --configure new` to create the project. Static hosting: `npx convex deploy`.

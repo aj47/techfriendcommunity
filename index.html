@@ -2,7 +2,15 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- Icons don't vary by route, so they stay outside the block the server
+         rewrites below. The .ico declares its sizes and favicon.svg declares
+         none, which is what makes browsers that understand SVG prefer the SVG
+         and leaves the .ico to the ones that don't. -->
+    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="apple-mobile-web-app-title" content="techfriend" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#09090b" />
     <!-- Between these markers is the default metadata. convex/staticSite.ts
@@ -17,7 +25,17 @@
     <meta property="og:site_name" content="techfriend community" />
     <meta property="og:title" content="techfriend community" />
     <meta property="og:description" content="Join the techfren community from your browser or inbox — no Discord account needed." />
-    <meta name="twitter:card" content="summary" />
+    <!-- Absolute, and deliberately the canonical host rather than whatever
+         origin served this: unfurlers resolve og:image on their own and several
+         reject a relative one outright. The server rewrites this per route with
+         its own origin; this default is what dev and any direct *.convex.site
+         hit get. -->
+    <meta property="og:image" content="https://www.techfriendcommunity.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="techfriendcommunity — the techfren Discord, on the web." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://www.techfriendcommunity.com/og.png" />
     <!--meta:end-->
   </head>
   <body>

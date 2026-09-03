@@ -19,7 +19,7 @@ const SITE_NAME = "techfriend community";
 const DEFAULT_DESCRIPTION =
   "Join the techfren community from your browser or inbox — no Discord account needed.";
 
-type PageMeta = { title: string; description: string; url: string };
+type PageMeta = { title: string; description: string; url: string; image: string };
 
 function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -50,7 +50,17 @@ function renderMeta(m: PageMeta): string {
     `<meta property="og:title" content="${title}" />`,
     `<meta property="og:description" content="${description}" />`,
     m.url ? `<meta property="og:url" content="${esc(m.url)}" />` : "",
-    `<meta name="twitter:card" content="summary" />`,
+    // One card for every route. Unfurlers fetch og:image themselves, from
+    // wherever they are, so it has to be absolute — and it is built from the
+    // same origin as og:url so a preview never points at a host that didn't
+    // serve the page. summary_large_image is what turns Twitter's preview from
+    // a thumbnail beside the text into the full-width card the others show.
+    `<meta property="og:image" content="${esc(m.image)}" />`,
+    `<meta property="og:image:width" content="1200" />`,
+    `<meta property="og:image:height" content="630" />`,
+    `<meta property="og:image:alt" content="${esc(SITE_NAME)} — the techfren Discord, on the web." />`,
+    `<meta name="twitter:card" content="summary_large_image" />`,
+    `<meta name="twitter:image" content="${esc(m.image)}" />`,
   ]
     .filter(Boolean)
     .join("");
@@ -68,10 +78,12 @@ async function metaFor(ctx: ActionCtx, url: URL): Promise<PageMeta> {
   const path = url.pathname.replace(/\/+$/, "") || "/";
   const origin = (process.env.SITE_URL ?? url.origin).replace(/\/+$/, "");
   const href = `${origin}${path === "/" ? "" : path}`;
+  const image = `${origin}/og.png`;
   const page = (title: string, description: string): PageMeta => ({
     title: `${title} · ${SITE_NAME}`,
     description,
     url: href,
+    image,
   });
 
   if (path === "/") {
@@ -79,6 +91,7 @@ async function metaFor(ctx: ActionCtx, url: URL): Promise<PageMeta> {
       title: `${SITE_NAME} — the techfren Discord, on the web`,
       description: DEFAULT_DESCRIPTION,
       url: href,
+      image,
     };
   }
   if (path === "/channels") return page("Channels", "Every mirrored channel in the techfren community.");

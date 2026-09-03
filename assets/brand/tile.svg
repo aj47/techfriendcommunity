@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Full-bleed square app tile. iOS and Android apply their own corner mask,
+       so this must not round its own corners or leave transparent edges: a
+       transparent apple-touch-icon composites onto black on some launchers and
+       onto white on others. -->
+  <defs>
+    <linearGradient id="bolt" x1="0.05" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#8B3CFF"/>
+      <stop offset="0.45" stop-color="#9A56FF"/>
+      <stop offset="1" stop-color="#6D7DFF"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.44" r="0.58">
+      <stop offset="0" stop-color="#8B3CFF" stop-opacity="0.38"/>
+      <stop offset="0.6" stop-color="#8B3CFF" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#8B3CFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" fill="#09090b"/>
+  <rect width="512" height="512" fill="url(#glow)"/>
+  <path transform="translate(99.5 106) scale(6.5217)" fill="url(#bolt)" d="M25.946 44.938c-.664.845-2.021.375-2.021-.698V33.937a2.26 2.26 0 0 0-2.262-2.262H10.287c-.92 0-1.456-1.04-.92-1.788l7.48-10.471c1.07-1.497 0-3.578-1.842-3.578H1.237c-.92 0-1.456-1.04-.92-1.788L10.013.474c.214-.297.556-.474.92-.474h28.894c.92 0 1.456 1.04.92 1.788l-7.48 10.471c-1.07 1.498 0 3.579 1.842 3.579h11.377c.943 0 1.473 1.088.89 1.83L25.947 44.94z"/>
+</svg>
