@@ -27,7 +27,18 @@ http.route({
 // /agentmail/webhook are matched first for their exact/prefix paths.
 http.route({ path: "/", method: "GET", handler: serveStatic });
 http.route({ pathPrefix: "/assets/", method: "GET", handler: serveStatic });
+// Every root-level file in public/ needs its own route: this router has no
+// catch-all, so an asset that is in the bundle but not listed here answers
+// "No matching routes found" and never reaches serveStatic. Hashed build output
+// is covered by the /assets/ prefix above; these are not.
 http.route({ path: "/favicon.svg", method: "GET", handler: serveStatic });
+http.route({ path: "/favicon.ico", method: "GET", handler: serveStatic });
+http.route({ path: "/apple-touch-icon.png", method: "GET", handler: serveStatic });
+http.route({ path: "/icon-192.png", method: "GET", handler: serveStatic });
+http.route({ path: "/icon-512.png", method: "GET", handler: serveStatic });
+http.route({ path: "/icon-maskable-512.png", method: "GET", handler: serveStatic });
+http.route({ path: "/site.webmanifest", method: "GET", handler: serveStatic });
+http.route({ path: "/og.png", method: "GET", handler: serveStatic });
 http.route({ path: "/channels", method: "GET", handler: serveStatic });
 http.route({ pathPrefix: "/channels/", method: "GET", handler: serveStatic });
 http.route({ path: "/leaderboard", method: "GET", handler: serveStatic });
