@@ -48,7 +48,11 @@ const NON_RESOURCE_HOSTS = new Set([
 // (tenor.com/view/..., media.tenor.com/..., c.tenor.com/...). The extension
 // rule below never catches these: a Tenor share is a page whose path ends in
 // an id, not in ".gif". Resources are meant to be things worth reading.
-const GIF_HOSTS = ["tenor.com", "giphy.com", "gfycat.com", "tenor.co"];
+//
+// klipy.com is here because the Discord client's GIF picker uses it: it was 27
+// of the 200 most recent links, second only to x.com. Expect this list to grow;
+// pruneNonResources re-reads it rather than keeping its own copy.
+const GIF_HOSTS = ["tenor.com", "giphy.com", "gfycat.com", "tenor.co", "klipy.com"];
 
 const NON_RESOURCE_EXT = /\.(png|jpe?g|gif|webp|bmp|svg|mp4|mov|webm|mp3|wav|ogg|zip|rar)$/i;
 
