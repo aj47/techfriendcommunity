@@ -4,8 +4,10 @@ import { api } from "../../convex/_generated/api";
 import { timeAgo } from "../lib/format";
 import { pageTitle, usePageMeta } from "../lib/head";
 
-// The channel directory. It used to be the home page; home now leads with the
-// daily summary and the live feed, and this is where you come to pick a room.
+// The channel directory: every room with its topic and how much traffic it has
+// seen. Day to day you pick a room from the chat shell's rail instead; this is
+// the browsable, linkable version of that list, and the one place threads and
+// quiet channels are easy to survey.
 export default function Channels() {
   const channels = useQuery(api.channels.list);
   const retention = useQuery(api.channels.retention);

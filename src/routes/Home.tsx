@@ -4,40 +4,44 @@ import { api } from "../../convex/_generated/api";
 import { timeAgo } from "../lib/format";
 import { linkify, mediaOf } from "../lib/linkify";
 import MediaEmbeds from "../components/MediaEmbeds";
-import DailySummary from "../components/DailySummary";
-import ResourcesTease from "../components/ResourcesTease";
 import { HOME_TITLE, usePageMeta } from "../lib/head";
 
 const FEED_LIMIT = 30;
 
+// The middle pane of the chat shell when no channel is picked: everything the
+// community said, newest first, across every mirrored channel. The daily
+// summary and the shared-resource list used to sit above this feed and push it
+// below the fold; they now live in the shell's recap pane, permanently beside
+// it (src/components/RecapPanel.tsx).
 export default function Home() {
   const feed = useQuery(api.messages.latestAcross, { limit: FEED_LIMIT });
   usePageMeta(HOME_TITLE);
 
   return (
-    <div className="space-y-6">
-      {/* The banner that used to carry this page's <h1> is gone; the heading
-          stays for screen readers and search, which have nothing else to name
-          the page by. */}
-      <h1 className="sr-only">The techfren community</h1>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex shrink-0 flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-zinc-800 px-3 py-2.5 sm:px-4">
+        {/* The pane's visible label is "Latest", but this is the site's home
+            page and its <h1> is the only thing naming it for crawlers and
+            screen readers, so the rest of the name stays in the heading. */}
+        <h1 className="text-base font-semibold">
+          Latest<span className="sr-only"> across the techfren community</span>
+        </h1>
+        <p className="text-xs text-zinc-500">Every channel, newest first</p>
+        <Link to="/channels" className="ml-auto shrink-0 text-xs text-emerald-400 hover:underline">
+          Browse channels
+        </Link>
+      </div>
 
-      <DailySummary />
-
-      <ResourcesTease />
-
-      <section>
-        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-500">Latest messages</h2>
-          <Link to="/channels" className="text-sm text-emerald-400 hover:underline">
-            Browse channels
-          </Link>
-        </div>
+      {/* Unlike a channel, this pane is newest-first and never auto-scrolls:
+          it is a glance at what is happening, so the newest line is the one
+          you should already be looking at. */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {feed === undefined ? (
-          <p className="text-zinc-500">Loading…</p>
+          <p className="p-4 text-zinc-500">Loading…</p>
         ) : feed.length === 0 ? (
-          <p className="text-zinc-500">Nothing mirrored yet.</p>
+          <p className="p-4 text-zinc-500">Nothing mirrored yet.</p>
         ) : (
-          <ul className="divide-y divide-zinc-800 overflow-hidden rounded-xl border border-zinc-800">
+          <ul className="divide-y divide-zinc-800">
             {feed.map((m) => {
               const { media, only } = mediaOf(m.content);
               return (
@@ -80,7 +84,7 @@ export default function Home() {
             })}
           </ul>
         )}
-      </section>
+      </div>
     </div>
   );
 }

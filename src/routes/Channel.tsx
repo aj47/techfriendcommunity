@@ -7,6 +7,11 @@ import Composer from "../components/Composer";
 import { ChannelTools } from "../webmcp/channelTools";
 import { pageTitle, usePageMeta } from "../lib/head";
 
+// One room, as the middle pane of the chat shell: a title bar, the scrollback,
+// and the composer pinned to the bottom. The shell owns the height — this fills
+// whatever it is given rather than measuring the viewport itself, which is what
+// the old page did with a hand-tuned calc() that had to be kept in step with
+// the header.
 export default function Channel() {
   const { slug = "" } = useParams();
   const navigate = useNavigate();
@@ -26,10 +31,10 @@ export default function Channel() {
     channel?.topic ?? undefined,
   );
 
-  if (channel === undefined) return <p className="text-zinc-500">Loading…</p>;
+  if (channel === undefined) return <p className="p-4 text-zinc-500">Loading…</p>;
   if (channel === null)
     return (
-      <p className="text-zinc-400">
+      <p className="p-4 text-zinc-400">
         No channel called <code>{slug}</code>. <Link to="/channels" className="text-emerald-400">See all channels</Link>.
       </p>
     );
@@ -48,16 +53,16 @@ export default function Channel() {
     : undefined;
 
   return (
-    <div className="flex h-[calc(100dvh-11rem)] flex-col sm:h-[calc(100dvh-8rem)]">
+    <div className="flex h-full min-h-0 flex-col">
       <ChannelTools slug={channel.slug} channelName={channel.name} messages={messages} />
-      <div className="mb-3 min-w-0">
+      <div className="min-w-0 shrink-0 border-b border-zinc-800 px-3 py-2.5 sm:px-4">
         {channel.isThread && channel.parent ? (
           <Link to={`/channels/${channel.parent.slug}`} className="text-xs text-zinc-500 hover:text-zinc-300">
             ← #{channel.parent.name}
           </Link>
         ) : null}
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-2">
-          <h1 className="text-lg font-semibold">{label}</h1>
+          <h1 className="text-base font-semibold">{label}</h1>
           {channel.topic ? <p className="min-w-0 truncate text-sm text-zinc-500">{channel.topic}</p> : null}
           <form onSubmit={runSearch} className="ml-auto shrink-0">
             <input
@@ -70,7 +75,8 @@ export default function Channel() {
           </form>
         </div>
       </div>
-      <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900/40">
+      {/* `relative` anchors MessageList's "N new messages" pill. */}
+      <div className="relative min-h-0 flex-1 overflow-hidden">
         {status === "LoadingFirstPage" ? (
           <p className="p-4 text-zinc-500">Loading messages…</p>
         ) : messages.length === 0 ? (
@@ -85,7 +91,7 @@ export default function Channel() {
           />
         )}
       </div>
-      <div className="mt-3">
+      <div className="shrink-0 border-t border-zinc-800 p-3 sm:px-4">
         <Composer slug={channel.slug} />
       </div>
     </div>
