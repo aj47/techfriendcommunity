@@ -41,19 +41,28 @@ const NON_RESOURCE_HOSTS = new Set([
   "media.discordapp.net",
   "images-ext-1.discordapp.net",
   "images-ext-2.discordapp.net",
+  "i.imgur.com",
 ]);
+
+// Hosts that only ever serve a reaction GIF, matched with their subdomains
+// (tenor.com/view/..., media.tenor.com/..., c.tenor.com/...). The extension
+// rule below never catches these: a Tenor share is a page whose path ends in
+// an id, not in ".gif". Resources are meant to be things worth reading.
+const GIF_HOSTS = ["tenor.com", "giphy.com", "gfycat.com", "tenor.co"];
 
 const NON_RESOURCE_EXT = /\.(png|jpe?g|gif|webp|bmp|svg|mp4|mov|webm|mp3|wav|ogg|zip|rar)$/i;
 
 // Whether a URL is worth crawling/summarizing as a shared "resource" — i.e.
-// a link to a page, not an image/video/audio attachment someone posted.
+// a link to a page worth reading, not an image, a clip, or a reaction GIF.
 // Discord uploads any pasted image or clip to its own CDN, and that URL
 // shows up in extractUrls() alongside real links; a raw attachment has no
 // content for Firecrawl to summarize and isn't what "resources" means here.
 export function isCrawlableResource(rawUrl: string): boolean {
   try {
     const u = new URL(rawUrl);
-    if (NON_RESOURCE_HOSTS.has(u.hostname.toLowerCase())) return false;
+    const host = u.hostname.toLowerCase();
+    if (NON_RESOURCE_HOSTS.has(host)) return false;
+    if (GIF_HOSTS.some((h) => host === h || host.endsWith(`.${h}`))) return false;
     if (NON_RESOURCE_EXT.test(u.pathname)) return false;
     return true;
   } catch {

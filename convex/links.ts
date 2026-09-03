@@ -150,6 +150,14 @@ export const requestSummary = mutation({
     const user = await requireUser(ctx);
     const url = normalizeUrl(raw);
     if (!url) throw new ConvexError({ code: "invalid", message: "That doesn't look like an http(s) URL." });
+    // The same rule the Discord ingest applies. Without it, the summarize-link
+    // tool was the one way a reaction GIF could still become a "resource".
+    if (!isCrawlableResource(url)) {
+      throw new ConvexError({
+        code: "invalid",
+        message: "That's an image, a clip or a GIF — resources are pages worth reading.",
+      });
+    }
     const existing = await ctx.db.query("link_resources").withIndex("by_url", (q) => q.eq("url", url)).unique();
     if (existing) {
       if (existing.crawlStatus === "failed") {
@@ -272,6 +280,34 @@ export const setImage = internalMutation({
   args: { resourceId: v.id("link_resources"), imageUrl: v.optional(v.string()) },
   handler: async (ctx, { resourceId, imageUrl }) => {
     await ctx.db.patch(resourceId, { imageUrl: safeImageUrl(imageUrl), imageAttemptedAt: Date.now() });
+  },
+});
+
+// Deletes rows that today's rules would never have stored: reaction GIFs and
+// raw attachments, which were only ever filtered at ingest, so anything shared
+// before a host joined the list is still sitting in the table. Chains a page at
+// a time, and re-reads the rule rather than hardcoding hosts, so running it
+// again after the next host is added does the right thing.
+export const pruneNonResources = internalMutation({
+  args: { at: v.optional(v.string()), removed: v.optional(v.number()), seen: v.optional(v.number()) },
+  handler: async (
+    ctx,
+    { at, removed = 0, seen = 0 },
+  ): Promise<{ seen: number; removed: number; done: boolean }> => {
+    const page = await ctx.db.query("link_resources").paginate({ cursor: at ?? null, numItems: 200 });
+    let gone = removed;
+    for (const r of page.page) {
+      if (isCrawlableResource(r.url)) continue;
+      await ctx.db.delete(r._id);
+      gone++;
+    }
+    const n = seen + page.page.length;
+    if (page.isDone) {
+      console.log("links: non-resource prune complete", { seen: n, removed: gone });
+      return { seen: n, removed: gone, done: true };
+    }
+    await ctx.scheduler.runAfter(0, internal.links.pruneNonResources, { at: page.continueCursor, removed: gone, seen: n });
+    return { seen: n, removed: gone, done: false };
   },
 });
 
