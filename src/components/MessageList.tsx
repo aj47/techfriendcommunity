@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { fmtTime } from "../lib/format";
 import MessageBody from "./MessageBody";
 import { draftStore } from "../lib/draftStore";
+import { linkify } from "../lib/linkify";
 
 export type MessageView = {
   id: string;
@@ -13,6 +14,7 @@ export type MessageView = {
   agentAssisted: boolean;
   createdAt: number;
   editedAt: number | null;
+  mentions?: Record<string, string>;
   replyTo?: { id: string; author: string; snippet: string } | null;
   thread?: { slug: string; name: string; messageCount: number } | null;
 };
@@ -141,10 +143,10 @@ export default function MessageList({ slug, messages, onLoadMore, canLoadMore, t
                 </div>
                 {m.replyTo ? (
                   <p className="mt-0.5 truncate border-l-2 border-zinc-700 pl-2 text-xs text-zinc-500">
-                    <span className="text-zinc-400">{m.replyTo.author}</span> — {m.replyTo.snippet}
+                    <span className="text-zinc-400">{m.replyTo.author}</span> — {linkify(m.replyTo.snippet, `${m.id}-re`, m.mentions)}
                   </p>
                 ) : null}
-                <MessageBody content={m.content} id={m.id} className="text-zinc-200" />
+                <MessageBody content={m.content} id={m.id} mentions={m.mentions} className="text-zinc-200" />
                 {m.thread ? (
                   <Link
                     to={`/channels/${m.thread.slug}`}

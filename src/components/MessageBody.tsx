@@ -4,9 +4,12 @@ import MediaEmbeds from "./MediaEmbeds";
 // One message body, rendered the way a chat client renders one: the text with
 // every URL clickable, and any image or video someone shared shown underneath
 // rather than left as a string of characters to copy into a new tab.
-export default function MessageBody({ content, id, className = "" }: {
+export default function MessageBody({ content, id, mentions, className = "" }: {
   content: string;
   id: string;
+  // Snowflake -> display name, resolved server-side (convex/messages.ts). Every
+  // message query returns it; without it a mention still reads as "@someone".
+  mentions?: Record<string, string>;
   className?: string;
 }) {
   const { media, only } = mediaOf(content);
@@ -14,7 +17,7 @@ export default function MessageBody({ content, id, className = "" }: {
     <>
       {only ? null : (
         <p className={`whitespace-pre-wrap break-words text-[15px] leading-relaxed ${className}`}>
-          {linkify(content, id)}
+          {linkify(content, id, mentions)}
         </p>
       )}
       <MediaEmbeds media={media} />

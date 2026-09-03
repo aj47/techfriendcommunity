@@ -14,7 +14,49 @@ import { enqueueLinks } from "./links";
 
 const MAX_LEN = 2000;
 
-async function view(ctx: { db: { get: (id: any) => Promise<any> } }, m: Doc<"messages">) {
+// Both query and mutation contexts reach these helpers; all they need is a db
+// they can read through.
+type QueryLike = { db: any };
+
+// Discord writes a mention as the raw snowflake — "<@123…>", "<#123…>" — and
+// that is what the mirror stores. Names are resolved here rather than on the
+// client because only the server can index into users and channels, and rather
+// than at ingest because a display name changes after a message is written.
+//
+// Anyone who has posted in a mirrored channel has a row (ingest creates shadow
+// users), so most mentions resolve; the rest are drawn as a neutral chip. The
+// id comes back as a map key, but the caller already has it — it is sitting in
+// the message text it just received — so this exposes nothing new.
+const MENTION_RE = /<@!?(\d+)>|<#(\d+)>/g;
+
+async function mentionsIn(ctx: QueryLike, content: string): Promise<Record<string, string>> {
+  const users = new Set<string>();
+  const channels = new Set<string>();
+  for (const m of content.matchAll(MENTION_RE)) {
+    if (m[1]) users.add(m[1]);
+    else if (m[2]) channels.add(m[2]);
+  }
+  const out: Record<string, string> = {};
+  for (const id of users) {
+    const u = await ctx.db
+      .query("users")
+      .withIndex("by_discordUserId", (q: any) => q.eq("discordUserId", id))
+      .unique();
+    const name = u?.displayName ?? u?.handle ?? u?.name;
+    if (name) out[id] = name;
+  }
+  // Snowflakes are unique across kinds, so users and channels share one map.
+  for (const id of channels) {
+    const c = await ctx.db
+      .query("channels")
+      .withIndex("by_discordChannelId", (q: any) => q.eq("discordChannelId", id))
+      .unique();
+    if (c) out[id] = c.name;
+  }
+  return out;
+}
+
+async function view(ctx: QueryLike, m: Doc<"messages">) {
   let replyTo: { id: Id<"messages">; author: string; snippet: string } | null = null;
   if (m.replyToMessageId) {
     const target = await ctx.db.get(m.replyToMessageId);
@@ -37,12 +79,14 @@ async function view(ctx: { db: { get: (id: any) => Promise<any> } }, m: Doc<"mes
     createdAt: m.createdAt,
     editedAt: m.editedAt ?? null,
     urls: m.urls,
+    // The reply preview is rendered from the same map, so resolve across both.
+    mentions: await mentionsIn(ctx, replyTo ? `${m.content} ${replyTo.snippet}` : m.content),
     replyTo,
     thread,
   };
 }
 
-async function viewAll(ctx: { db: { get: (id: any) => Promise<any> } }, rows: Doc<"messages">[]) {
+async function viewAll(ctx: QueryLike, rows: Doc<"messages">[]) {
   const out = [];
   for (const m of rows) out.push(await view(ctx, m));
   return out;

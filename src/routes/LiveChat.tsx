@@ -70,7 +70,7 @@ export default function LiveChat() {
                       </div>
                       {only ? null : (
                         <p className="mt-0.5 line-clamp-3 break-words text-[15px] leading-relaxed text-zinc-300 [&_a]:pointer-events-auto">
-                          {linkify(m.content, m.id)}
+                          {linkify(m.content, m.id, m.mentions)}
                         </p>
                       )}
                       {/* Thumbnails only: the feed is a glance, not the channel. */}

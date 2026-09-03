@@ -4,6 +4,7 @@ import { auth } from "./auth";
 import { ingest } from "./discordIngest";
 import { agentmail } from "./email";
 import { serveStatic } from "./staticSite";
+import { gifRedirect } from "./gif";
 import { ogImage } from "./og/image";
 
 const http = httpRouter();
@@ -45,6 +46,11 @@ http.route({ path: "/icon-512.png", method: "GET", handler: serveStatic });
 http.route({ path: "/icon-maskable-512.png", method: "GET", handler: serveStatic });
 http.route({ path: "/site.webmanifest", method: "GET", handler: serveStatic });
 http.route({ path: "/og.png", method: "GET", handler: serveStatic });
+// Resolves a GIF-host page to the media it shows (convex/gif.ts). Registered
+// with the API routes rather than the static ones: it answers with a redirect,
+// not a file.
+http.route({ path: "/gif", method: "GET", handler: gifRedirect });
+
 http.route({ path: "/channels", method: "GET", handler: serveStatic });
 http.route({ pathPrefix: "/channels/", method: "GET", handler: serveStatic });
 http.route({ path: "/leaderboard", method: "GET", handler: serveStatic });

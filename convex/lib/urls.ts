@@ -54,6 +54,11 @@ const NON_RESOURCE_HOSTS = new Set([
 // pruneNonResources re-reads it rather than keeping its own copy.
 const GIF_HOSTS = ["tenor.com", "giphy.com", "gfycat.com", "tenor.co", "klipy.com"];
 
+export function isGifHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return GIF_HOSTS.some((h) => host === h || host.endsWith(`.${h}`));
+}
+
 const NON_RESOURCE_EXT = /\.(png|jpe?g|gif|webp|bmp|svg|mp4|mov|webm|mp3|wav|ogg|zip|rar)$/i;
 
 // Whether a URL is worth crawling/summarizing as a shared "resource" — i.e.
@@ -66,7 +71,7 @@ export function isCrawlableResource(rawUrl: string): boolean {
     const u = new URL(rawUrl);
     const host = u.hostname.toLowerCase();
     if (NON_RESOURCE_HOSTS.has(host)) return false;
-    if (GIF_HOSTS.some((h) => host === h || host.endsWith(`.${h}`))) return false;
+    if (isGifHost(host)) return false;
     if (NON_RESOURCE_EXT.test(u.pathname)) return false;
     return true;
   } catch {

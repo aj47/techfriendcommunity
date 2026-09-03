@@ -14,8 +14,12 @@ import { fmtTime, timeAgo } from "./format";
 //   <t:1788286014:t>  a Discord timestamp. Only Discord's client renders these;
 //                     everywhere else they are unreadable machine text.
 //   <url> / url       a bare URL, optionally inside those same brackets.
+//   <@123> / <@!123>  a mention. <#123> is a channel; <@&123> a role.
+//   <:name:123>       a custom emoji, <a:name:123> an animated one.
+// Both are raw snowflakes in the mirrored text — unreadable anywhere but in
+// Discord's own client, which is exactly what this file exists to fix.
 const TOKEN =
-  /\[([^\]\n]{1,300})\]\(\s*<?(https?:\/\/[^\s<>)]+)>?\s*\)|<t:(-?\d{1,14})(?::([tTdDfFR]))?>|(<?)((?:https?:\/\/|www\.)[^\s<>]+)(>?)/gi;
+  /\[([^\]\n]{1,300})\]\(\s*<?(https?:\/\/[^\s<>)]+)>?\s*\)|<t:(-?\d{1,14})(?::([tTdDfFR]))?>|(<?)((?:https?:\/\/|www\.)[^\s<>]+)(>?)|<(@[!&]?|#)(\d{5,25})>|<(a?):([A-Za-z0-9_]{1,32}):(\d{5,25})>/gi;
 
 // Trailing punctuation is nearly always the sentence's, not the link's. A
 // closing bracket only counts as trailing when it is unbalanced, so
@@ -89,15 +93,30 @@ function discordTime(seconds: number, style: string): { label: string; ms: numbe
   }
 }
 
+// A chip, not a link: clicking a name in a mirrored message has nowhere useful
+// to go, and the point is only that "@ada" reads as a person where
+// "<@1370407888509599804>" reads as a database error.
+function mention(label: string, key: string) {
+  return (
+    <span key={key} className="rounded bg-emerald-500/10 px-1 py-px font-medium text-emerald-300">
+      {label}
+    </span>
+  );
+}
+
 // `keyPrefix` only has to be unique among siblings, so callers pass whatever
 // they already key that block by (message id, line index).
-export function linkify(text: string, keyPrefix = "lk"): ReactNode[] {
+//
+// `names` maps a snowflake to a display name (resolved in convex/messages.ts).
+// Without it a mention still renders — as "@someone" — so a caller with no map,
+// like the bot's own summaries, loses the name and nothing else.
+export function linkify(text: string, keyPrefix = "lk", names?: Record<string, string>): ReactNode[] {
   const nodes: ReactNode[] = [];
   let cursor = 0;
   let n = 0;
   TOKEN.lastIndex = 0;
   for (let m = TOKEN.exec(text); m; m = TOKEN.exec(text)) {
-    const [whole, mdLabel, mdUrl, tsSeconds, tsStyle, open, bare, close] = m;
+    const [whole, mdLabel, mdUrl, tsSeconds, tsStyle, open, bare, close, mentionKind, mentionId, emojiAnimated, emojiName, emojiId] = m;
     let node: ReactNode;
     // Where the plain text before this token ends, and where the token ends.
     let textEnd = m.index;
@@ -117,6 +136,29 @@ export function linkify(text: string, keyPrefix = "lk"): ReactNode[] {
         >
           {t.label}
         </time>
+      );
+    } else if (mentionId) {
+      const name = names?.[mentionId];
+      const label =
+        mentionKind === "#"
+          ? `#${name ?? "channel"}`
+          : mentionKind === "@&"
+            ? `@${name ?? "role"}`
+            : `@${name ?? "someone"}`;
+      node = mention(label, `${keyPrefix}-${n++}`);
+    } else if (emojiId) {
+      // Discord serves every custom emoji from one predictable path, animated
+      // ones as gifs. Sized to the line, so a message that is six emoji stays a
+      // message rather than becoming a poster.
+      node = (
+        <img
+          key={`${keyPrefix}-${n++}`}
+          src={`https://cdn.discordapp.com/emojis/${emojiId}.${emojiAnimated ? "gif" : "png"}?size=48`}
+          alt={`:${emojiName}:`}
+          title={`:${emojiName}:`}
+          loading="lazy"
+          className="inline-block h-5 w-5 align-text-bottom"
+        />
       );
     } else {
       const url = trimTrailing(bare);
@@ -140,10 +182,39 @@ export function linkify(text: string, keyPrefix = "lk"): ReactNode[] {
   return nodes.length ? nodes : [text];
 }
 
-export type Media = { url: string; kind: "image" | "video" };
+// `url` is what gets loaded; `href` is where "open the original" goes when the
+// two differ — a GIF-host page embeds through /gif but should still open as the
+// page someone actually linked.
+export type Media = { url: string; kind: "image" | "video"; href?: string };
 
 const IMAGE_EXT = /\.(?:png|jpe?g|gif|webp|avif|bmp|svg)(?=$|[?#])/i;
 const VIDEO_EXT = /\.(?:mp4|webm|mov|m4v|ogv)(?=$|[?#])/i;
+
+// GIF-host pages are not files, whatever their path ends in: tenor.com/bf62P.gif
+// 301s to an HTML page, so the extension rule above was handing <img> a
+// document and drawing a broken icon. /gif resolves the page to the media it
+// shows (convex/gif.ts) and redirects there.
+//
+// Klipy is deliberately absent. It sits behind a bot challenge that answers 403
+// to anything without a browser, so nothing server-side can resolve it, and a
+// link is a better answer than an image that will never load.
+const GIF_PAGE_HOSTS = ["tenor.com", "giphy.com", "gfycat.com"];
+// media.tenor.com/…, media1.giphy.com/…, i.giphy.com/… are the files themselves
+// and load directly. The subdomain is the only reliable tell: the extension is
+// not, because tenor.com/bf62P.gif — the form Discord's picker actually
+// produces — ends in .gif and is still an HTML page.
+const GIF_MEDIA_HOST = /^(?:media\d*|i|c)\./;
+
+function gifPageEmbed(url: string): string | null {
+  try {
+    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+    if (GIF_MEDIA_HOST.test(host)) return null;
+    const match = GIF_PAGE_HOSTS.some((h) => host === h || host.endsWith(`.${h}`));
+    return match ? `/gif?u=${encodeURIComponent(url)}` : null;
+  } catch {
+    return null;
+  }
+}
 // A wall of screenshots would bury the conversation it belongs to.
 const MEDIA_LIMIT = 4;
 
@@ -165,16 +236,18 @@ export function mediaOf(text: string): { media: Media[]; only: boolean } {
     const bare = m[6];
     if (!bare || (m[5] === "<" && m[7] === ">")) continue;
     const url = trimTrailing(bare);
-    const kind = VIDEO_EXT.test(url) ? "video" : IMAGE_EXT.test(url) ? "image" : null;
+    const href = /^www\./i.test(url) ? `https://${url}` : url;
+    const gif = gifPageEmbed(href);
+    const kind = gif ? "image" : VIDEO_EXT.test(url) ? "video" : IMAGE_EXT.test(url) ? "image" : null;
     if (!kind) continue;
     const start = m.index + m[5].length;
     rest += text.slice(cursor, start);
     cursor = start + url.length;
     TOKEN.lastIndex = cursor;
-    const href = /^www\./i.test(url) ? `https://${url}` : url;
     if (seen.has(href) || media.length >= MEDIA_LIMIT) continue;
     seen.add(href);
-    media.push({ url: href, kind });
+    // A GIF page loads through the redirect but still opens as the page.
+    media.push(gif ? { url: gif, kind, href } : { url: href, kind });
   }
   rest += text.slice(cursor);
   return { media, only: media.length > 0 && rest.trim() === "" };

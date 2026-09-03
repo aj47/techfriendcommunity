@@ -40,7 +40,7 @@ export default function MediaEmbeds({ media, thumb = false }: { media: Media[]; 
         ) : (
           <a
             key={m.url}
-            href={m.url}
+            href={m.href ?? m.url}
             target="_blank"
             rel="noopener noreferrer nofollow ugc"
             onClick={(e) => e.stopPropagation()}
