@@ -6,9 +6,10 @@ import { mediaOf } from "../lib/linkify";
 
 // A window into the conversation, sized to stay a window: the landing page
 // leads with the alpha, and this is the reminder that there is a live Discord
-// behind it. One line per message, no media, no linkified text — every row is a
-// link into the channel it came from, and the full three-pane view is one click
-// away at /channels.
+// behind it. Up to three lines per message — enough that a short post reads
+// whole rather than as a cut-off phrase — with no media and no linkified text,
+// since every row is itself a link into the channel it came from. The full
+// three-pane view is one click away at /channels.
 //
 // It fills its grid column and scrolls inside itself, so it matches the height
 // of the cards beside it however tall those get, and asks for enough rows to
@@ -62,7 +63,11 @@ export default function LatestPreview() {
                       {m.channel ? <span className="shrink-0 text-emerald-400">#{m.channel.name}</span> : null}
                       <span className="ml-auto shrink-0 tabular-nums text-zinc-600">{shortAgo(m.createdAt)}</span>
                     </div>
-                    <p className={`truncate text-[13px] ${line.muted ? "italic text-zinc-500" : "text-zinc-400"}`}>
+                    <p
+                      className={`line-clamp-3 break-words text-[13px] leading-snug ${
+                        line.muted ? "italic text-zinc-500" : "text-zinc-400"
+                      }`}
+                    >
                       {line.text}
                     </p>
                   </div>
