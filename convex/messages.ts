@@ -268,7 +268,7 @@ export const markFailed = internalMutation({
 //   reaction.add   {messageId, emoji, userId}
 //   channel.sync   {channels: [{id, name, topic?, position, webhookUrl?, parentId?, isThread?}]}
 //   link.code      {code, discordUserId, name, avatar?}
-//   leaderboard.sync {rows: [{discordUserId, name, points}], complete?: boolean}
+//   leaderboard.sync {rows: [{discordUserId, name, points, lifetimePoints?}], complete?: boolean}
 //   summary.sync   {rows: [{discordChannelId, channelName, date, summaryText, messageCount, activeUsers, createdAt}]}
 
 type IngestEvent = Record<string, any> & { type: string };

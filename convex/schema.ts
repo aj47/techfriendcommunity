@@ -113,6 +113,12 @@ export default defineSchema({
     discordUserId: v.string(),
     name: v.string(),
     points: v.number(),
+    // Everything this member has ever been awarded. `points` is a spendable
+    // balance in the bot — colours, GIF bypasses and frenbot access all take
+    // from it — so it stops answering "how much have they contributed" the
+    // moment they spend any. Optional because a bot older than the column
+    // pushes rows without it.
+    lifetimePoints: v.optional(v.number()),
     updatedAt: v.number(),
   })
     .index("by_discordUserId", ["discordUserId"])

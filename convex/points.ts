@@ -13,7 +13,13 @@ import { publicUser } from "./lib/requireUser";
 // Replace the mirror with the bot's current standings. Called from the
 // ingest handler. Rows are always upserted; whether absent rows get pruned
 // depends on `complete` — see below.
-export type MirrorRow = { discordUserId: string; name: string; points: number };
+export type MirrorRow = {
+  discordUserId: string;
+  name: string;
+  points: number;
+  // Absent from an un-upgraded bot; the balance is then the best floor there is.
+  lifetimePoints?: number;
+};
 
 export async function syncMirror(ctx: MutationCtx, rows: MirrorRow[], complete?: boolean) {
   // A push with no rows is far more likely a hiccup (a transient empty/failed
@@ -31,16 +37,39 @@ export async function syncMirror(ctx: MutationCtx, rows: MirrorRow[], complete?:
   const seen = new Set<string>();
   for (const row of rows) {
     seen.add(row.discordUserId);
+    // Nothing may lower a lifetime total. A bot that doesn't send one yet, or a
+    // truncated push, must not reset what the mirror already knows — so take
+    // the highest of what arrived, what is stored, and the balance itself.
     const existing = await ctx.db
       .query("leaderboard_mirror")
       .withIndex("by_discordUserId", (q) => q.eq("discordUserId", row.discordUserId))
       .unique();
+    const lifetimePoints = Math.max(
+      row.lifetimePoints ?? 0,
+      existing?.lifetimePoints ?? 0,
+      row.points,
+    );
     if (existing) {
-      if (existing.points !== row.points || existing.name !== row.name) {
-        await ctx.db.patch(existing._id, { name: row.name, points: row.points, updatedAt: now });
+      if (
+        existing.points !== row.points ||
+        existing.name !== row.name ||
+        existing.lifetimePoints !== lifetimePoints
+      ) {
+        await ctx.db.patch(existing._id, {
+          name: row.name,
+          points: row.points,
+          lifetimePoints,
+          updatedAt: now,
+        });
       }
     } else {
-      await ctx.db.insert("leaderboard_mirror", { ...row, updatedAt: now });
+      await ctx.db.insert("leaderboard_mirror", {
+        discordUserId: row.discordUserId,
+        name: row.name,
+        points: row.points,
+        lifetimePoints,
+        updatedAt: now,
+      });
     }
   }
 
@@ -80,9 +109,15 @@ export const leaderboard = query({
         .query("users")
         .withIndex("by_discordUserId", (q) => q.eq("discordUserId", row.discordUserId))
         .unique();
+      const lifetimePoints = Math.max(row.lifetimePoints ?? 0, row.points);
       out.push({
         rank: i + 1,
         points: row.points,
+        // What they have earned in total, and how much of it they have spent
+        // in Discord. Ranking still follows the balance, as the bot's own
+        // /leaderboard does.
+        lifetimePoints,
+        spent: lifetimePoints - row.points,
         name: row.name,
         user: user ? publicUser(user) : null,
       });
