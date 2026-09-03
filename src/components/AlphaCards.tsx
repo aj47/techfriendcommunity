@@ -30,7 +30,7 @@ export default function AlphaCards() {
         <p className="px-4 py-6 text-sm text-zinc-600 sm:px-5">Loading…</p>
       ) : rows.length === 0 ? (
         <p className="px-4 py-6 text-sm text-zinc-600 sm:px-5">
-          Nothing here yet — links shared in the Discord land here once they have been read and summarized.
+          Nothing here yet — links the community shares land here once they have been read and summarized.
         </p>
       ) : (
         <ul className="grid gap-3 p-3 sm:grid-cols-2 sm:gap-4 sm:p-4">

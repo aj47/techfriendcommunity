@@ -94,7 +94,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         <>
           <main className="mx-auto w-full max-w-5xl flex-1 px-3 py-4 sm:px-4 sm:py-6">{children}</main>
           <footer className="border-t border-zinc-800 px-4 py-4 text-center text-xs text-zinc-500">
-            A web + email front door to the techfren Discord. Agent-ready via WebMCP.
+            A web + email front door to the techfren community. Agent-ready via WebMCP.
           </footer>
         </>
       )}

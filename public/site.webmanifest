@@ -1,7 +1,7 @@
 {
   "name": "techfriend community",
   "short_name": "techfriend",
-  "description": "Join the techfren community from your browser or inbox — no Discord account needed.",
+  "description": "Daily highlights, the latest links and live chat from the techfren community.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -3,23 +3,21 @@ import AlphaCards from "../components/AlphaCards";
 import LatestPreview from "../components/LatestPreview";
 import { HOME_TITLE, usePageMeta } from "../lib/head";
 
-// The landing page is a document, not the chat shell. What the community found
-// is the page — Latest Alpha takes the wide column as preview cards — with
-// yesterday's highlights folded into a banner above it and the conversation
-// running full-height alongside, one click from the real thing at /channels.
+// The landing page is a document, not the chat shell. It opens straight into
+// the content: yesterday's highlights folded into a banner, then what the
+// community found as preview cards in the wide column, with the conversation
+// running full-height alongside and the real thing a click away at /channels.
+//
+// The heading is present but not painted. It is the page's name for crawlers
+// and for anyone arriving by screen reader — both of which read an <h1> as the
+// answer to "what is this page?" — and a landing page that starts with a card
+// has nowhere to put that answer visually.
 export default function Home() {
   usePageMeta(HOME_TITLE);
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold sm:text-2xl">
-          The techfren Discord<span className="text-zinc-500">, on the web</span>
-        </h1>
-        <p className="mt-1 text-sm text-zinc-400">
-          What the community has been reading, what happened yesterday, and a window into the chat.
-        </p>
-      </div>
+      <h1 className="sr-only">AI news, links and live chat from the techfren community</h1>
 
       <DailySummary variant="banner" />
 

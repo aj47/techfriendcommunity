@@ -18,14 +18,14 @@ function serve(asset: { contentType: string; cache: string; base64: string }): R
 
 const SITE_NAME = "techfriend community";
 const DEFAULT_DESCRIPTION =
-  "Join the techfren community from your browser or inbox — no Discord account needed.";
+  "What the AI community read and said today: daily highlights, the latest links and tools, and live chat across every channel.";
 
 type PageMeta = { title: string; description: string; url: string; image: string; alt?: string };
 
 // The card is drawn from live content, so its alt text says what that content
 // is rather than describing the brand. Screen readers on Twitter and Mastodon
 // read this out in place of the card.
-const DEFAULT_ALT = `${SITE_NAME} — the techfren Discord, on the web.`;
+const DEFAULT_ALT = `${SITE_NAME} — AI news, links and live chat.`;
 
 function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -116,23 +116,23 @@ async function metaFor(ctx: ActionCtx, url: URL): Promise<PageMeta> {
 
   if (path === "/") {
     return {
-      title: `${SITE_NAME} — the techfren Discord, on the web`,
+      title: `${SITE_NAME} — AI news, links and live chat`,
       description: DEFAULT_DESCRIPTION,
       url: href,
       image,
-      alt: "The techfren Discord's latest daily recap and newest messages.",
+      alt: "The techfren community's latest daily recap and newest messages.",
     };
   }
   if (path === "/channels")
     return page(
       "Live chat",
-      "Every channel of the techfren Discord, newest message first.",
-      "The newest messages from every channel of the techfren Discord.",
+      "Every channel of the techfren community, newest message first.",
+      "The newest messages from every channel of the techfren community.",
     );
   if (path === "/leaderboard")
     return page(
       "Leaderboard",
-      "Community standings, scored in Discord by the techfren bot.",
+      "Community standings, scored by the techfren bot.",
       "The current techfren community standings.",
     );
   if (path === "/resources")
@@ -145,12 +145,12 @@ async function metaFor(ctx: ActionCtx, url: URL): Promise<PageMeta> {
     const q = url.searchParams.get("q")?.trim();
     return page(
       q ? `Search: ${q}` : "Search",
-      "Search every message mirrored from the techfren Discord.",
-      q ? `Search results for “${q}” in the techfren Discord.` : undefined,
+      "Search every message in the techfren community.",
+      q ? `Search results for “${q}” in the techfren community.` : undefined,
     );
   }
-  if (path === "/settings") return page("Settings", "Your profile, Discord link, and email digests.");
-  if (path === "/signin") return page("Sign in", "Sign in with GitHub or an email link — no Discord account needed.");
+  if (path === "/settings") return page("Settings", "Your profile, linked accounts, and email digests.");
+  if (path === "/signin") return page("Sign in", "Sign in with GitHub or an email link — no invite needed.");
 
   if (path.startsWith("/channels/")) {
     const slug = decodeURIComponent(path.slice("/channels/".length));

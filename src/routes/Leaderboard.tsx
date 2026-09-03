@@ -6,7 +6,7 @@ import { pageTitle, usePageMeta } from "../lib/head";
 export default function Leaderboard() {
   const rows = useQuery(api.points.leaderboard, { limit: 50 });
   const syncedAt = useQuery(api.points.lastSyncedAt);
-  usePageMeta(pageTitle("Leaderboard"), "Community standings, scored in Discord by the techfren bot.");
+  usePageMeta(pageTitle("Leaderboard"), "Community standings, scored by the techfren bot.");
 
   useWebMCPTool(
     {
@@ -59,7 +59,7 @@ export default function Leaderboard() {
         </ol>
       )}
       <p className="text-xs text-zinc-500">
-        Points are awarded in Discord by the techfren bot, which reviews each day's contributions and scores them on how
+        Points are awarded by the techfren bot, which reviews each day's contributions and scores them on how
         much they helped the community. This page mirrors those standings
         {syncedAt ? ` (updated ${new Date(syncedAt).toLocaleString()})` : ""}.
       </p>

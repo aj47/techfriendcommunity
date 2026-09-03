@@ -16,7 +16,7 @@ const FEED_LIMIT = 30;
 // (src/components/LatestPreview.tsx).
 export default function LiveChat() {
   const feed = useQuery(api.messages.latestAcross, { limit: FEED_LIMIT });
-  usePageMeta(pageTitle("Live chat"), "Every channel of the techfren Discord, newest message first.");
+  usePageMeta(pageTitle("Live chat"), "Every channel of the techfren community, newest message first.");
 
   return (
     <div className="flex h-full min-h-0 flex-col">

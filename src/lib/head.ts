@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 
 export const SITE_NAME = "techfriend community";
-export const HOME_TITLE = `${SITE_NAME} — the techfren Discord, on the web`;
+export const HOME_TITLE = `${SITE_NAME} — AI news, links and live chat`;
 
 export function pageTitle(section: string): string {
   return `${section} · ${SITE_NAME}`;
