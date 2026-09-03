@@ -12,7 +12,7 @@ export default function Leaderboard() {
     {
       name: "get-leaderboard",
       description:
-        "Get the community points leaderboard. Points are awarded by the techfren Discord bot, which judges each day's contributions for quality; this site mirrors those standings read-only.",
+        "Get the community points leaderboard. Points are awarded by the techfren Discord bot, which judges each day's contributions for quality; this site mirrors those standings read-only. Rows are ranked by spendable balance and also report what each member has earned all-time, since points can be spent in Discord.",
       inputSchema: {
         type: "object",
         properties: {
@@ -27,7 +27,11 @@ export default function Leaderboard() {
           `Top ${Math.min(n, data.length)} (Discord points):\n` +
             data
               .slice(0, n)
-              .map((r) => `${r.rank}. ${r.user?.handle ? "@" + r.user.handle : r.name} — ${r.points} pts`)
+              .map((r) => {
+                const who = r.user?.handle ? "@" + r.user.handle : r.name;
+                const earned = r.spent > 0 ? ` (${r.lifetimePoints} earned all-time, ${r.spent} spent)` : "";
+                return `${r.rank}. ${who} — ${r.points} pts${earned}`;
+              })
               .join("\n"),
         );
       },
@@ -53,6 +57,14 @@ export default function Leaderboard() {
                 <div className="h-7 w-7 rounded-full bg-zinc-700" />
               )}
               <span className="flex-1 truncate">{r.user?.handle ? `@${r.user.handle}` : r.name}</span>
+              {/* Spending in Discord draws down the balance this board ranks on,
+                  so anyone who has spent gets their all-time total alongside it —
+                  otherwise the board reads as if they had contributed less. */}
+              {r.spent > 0 ? (
+                <span className="tabular-nums text-xs text-zinc-500" title={`${r.spent} spent in Discord`}>
+                  {r.lifetimePoints} all-time
+                </span>
+              ) : null}
               <span className="tabular-nums text-emerald-400">{r.points} pts</span>
             </li>
           ))}
@@ -60,7 +72,9 @@ export default function Leaderboard() {
       )}
       <p className="text-xs text-zinc-500">
         Points are awarded in Discord by the techfren bot, which reviews each day's contributions and scores them on how
-        much they helped the community. This page mirrors those standings
+        much they helped the community. Points can be spent in Discord — on a role colour, a GIF bypass, frenbot access
+        — so members who have spent any show what they have earned all-time next to their remaining balance. This page
+        mirrors those standings
         {syncedAt ? ` (updated ${new Date(syncedAt).toLocaleString()})` : ""}.
       </p>
     </div>
