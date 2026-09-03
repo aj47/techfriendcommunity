@@ -3,8 +3,8 @@ import Layout from "./components/Layout";
 import ChatShell from "./components/ChatShell";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Home from "./routes/Home";
+import LiveChat from "./routes/LiveChat";
 import Channel from "./routes/Channel";
-import Channels from "./routes/Channels";
 import Leaderboard from "./routes/Leaderboard";
 import NotFound from "./routes/NotFound";
 import Resources from "./routes/Resources";
@@ -21,7 +21,7 @@ export default function App() {
     <ErrorBoundary key={location.pathname}>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/channels" element={<Channels />} />
+        <Route path="/channels" element={<LiveChat />} />
         <Route path="/channels/:slug" element={<Channel />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
         <Route path="/resources" element={<Resources />} />

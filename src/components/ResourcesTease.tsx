@@ -35,7 +35,7 @@ export default function ResourcesTease() {
   return (
     <section className="rounded-xl border border-zinc-800 bg-zinc-900/40">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-zinc-800 px-4 py-3 sm:px-5">
-        <h2 className="text-base font-semibold sm:text-lg">Resources</h2>
+        <h2 className="text-base font-semibold sm:text-lg">Latest Alpha</h2>
         <Link to="/resources" className="text-xs text-emerald-400 hover:underline">
           Search all resources
         </Link>

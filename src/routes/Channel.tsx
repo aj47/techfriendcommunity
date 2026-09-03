@@ -35,7 +35,7 @@ export default function Channel() {
   if (channel === null)
     return (
       <p className="p-4 text-zinc-400">
-        No channel called <code>{slug}</code>. <Link to="/channels" className="text-emerald-400">See all channels</Link>.
+        No channel called <code>{slug}</code>. <Link to="/channels" className="text-emerald-400">Open live chat</Link>.
       </p>
     );
 

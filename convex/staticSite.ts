@@ -94,7 +94,8 @@ async function metaFor(ctx: ActionCtx, url: URL): Promise<PageMeta> {
       image,
     };
   }
-  if (path === "/channels") return page("Channels", "Every mirrored channel in the techfren community.");
+  if (path === "/channels")
+    return page("Live chat", "Every channel of the techfren Discord, newest message first.");
   if (path === "/leaderboard")
     return page("Leaderboard", "Community standings, scored in Discord by the techfren bot.");
   if (path === "/resources")

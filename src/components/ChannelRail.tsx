@@ -7,7 +7,6 @@ import { shortAgo } from "../lib/format";
 // need the header's nav to be reachable — which matters on a phone, where the
 // header's second nav row is dropped to give the conversation its height back.
 const secondary = [
-  { to: "/channels", label: "All channels" },
   { to: "/leaderboard", label: "Leaderboard" },
   { to: "/resources", label: "Resources" },
   { to: "/search", label: "Search" },
@@ -27,7 +26,7 @@ export default function ChannelRail() {
 
   return (
     <nav aria-label="Channels" className="flex h-full min-h-0 flex-col overflow-y-auto px-2 py-3">
-      <NavLink to="/" end className={({ isActive }) => itemClass(isActive)}>
+      <NavLink to="/channels" end className={({ isActive }) => itemClass(isActive)}>
         Latest across all channels
       </NavLink>
 

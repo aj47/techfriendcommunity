@@ -6,8 +6,7 @@ import { api } from "../../convex/_generated/api";
 import { isChatShellRoute } from "../lib/appShell";
 
 const nav = [
-  { to: "/", label: "Latest" },
-  { to: "/channels", label: "Channels" },
+  { to: "/channels", label: "Live chat" },
   { to: "/leaderboard", label: "Leaderboard" },
   { to: "/resources", label: "Resources" },
   { to: "/search", label: "Search" },
@@ -20,7 +19,6 @@ function NavItems() {
         <NavLink
           key={n.to}
           to={n.to}
-          end={n.to === "/"}
           className={({ isActive }) =>
             `shrink-0 rounded-md px-3 py-1.5 hover:bg-zinc-800 ${isActive ? "bg-zinc-800 text-white" : "text-zinc-400"}`
           }

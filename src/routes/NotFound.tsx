@@ -17,7 +17,7 @@ export default function NotFound() {
           Latest messages
         </Link>
         <Link to="/channels" className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm hover:bg-zinc-800">
-          Browse channels
+          Live chat
         </Link>
       </div>
     </div>

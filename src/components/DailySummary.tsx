@@ -119,7 +119,7 @@ export default function DailySummary() {
   return (
     <section className="rounded-xl border border-zinc-800 bg-zinc-900/40">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-zinc-800 px-4 py-3 sm:px-5">
-        <h2 className="text-base font-semibold sm:text-lg">Daily summary</h2>
+        <h2 className="text-base font-semibold sm:text-lg">Yesterday’s Highlights</h2>
         <p className="text-xs text-zinc-500">{prettyDate(latest.date)}</p>
       </div>
 
