@@ -59,8 +59,10 @@ for (const p of bundled) {
   else fail.push(`${p} is in the bundle but has no route in convex/http.ts — it will 404`);
 }
 
-// And every icon the head references must actually be bundled.
-for (const p of html.matchAll(/(?:href|content)="(\/[^"]+\.(?:png|ico|svg|webmanifest))"/g)) {
+// And every icon the head references must actually be bundled. The ?v= cache
+// buster is stripped first: it is part of the URL the browser fetches, but the
+// bundle is keyed by path, and the router matches on path too.
+for (const p of html.matchAll(/(?:href|content)="(\/[^"?]+\.(?:png|ico|svg|webmanifest))(?:\?[^"]*)?"/g)) {
   if (bundled.includes(p[1])) ok.push(`head reference ${p[1]} is in the bundle`);
   else fail.push(`head references ${p[1]} but it is not in the bundle`);
 }
