@@ -48,6 +48,32 @@ sudo apt-get install -y librsvg2-bin imagemagick pngquant optipng fonts-inter
 ./scripts/gen-brand.sh
 ```
 
+### Link-preview cards
+
+`/og/<card>.png` draws a route's link-preview card from live content — the
+day's recap on `/`, the newest messages on `/channels`, the standings on
+`/leaderboard`, the query on `/search` — with resvg compiled to WebAssembly,
+inside the Convex deployment (`convex/og/`). `convex/staticSite.ts` points each
+route's `og:image` at its own card and stamps a `?v=` taken from the newest
+thing that card shows: unfurlers cache by URL, so without the stamp Discord and
+Twitter would keep serving the first card they ever fetched. A render that
+throws redirects to the static `public/og.png`.
+
+```bash
+npx tsx scripts/preview-og.ts og-preview   # render every card from sample data
+node scripts/check-site-meta.mjs           # cards routed, og:image wired, kinds drawn
+```
+
+`convex/ogRuntime.generated.ts` carries the wasm renderer and the Inter subsets
+(≈3.5 MB, committed) so no cold start needs a CDN. Regenerate it only when
+upgrading `@resvg/resvg-wasm` or widening the glyph coverage:
+
+```bash
+pip install --break-system-packages fonttools brotli   # pyftsubset
+sudo apt-get install -y fonts-inter
+node scripts/gen-og-runtime.mjs
+```
+
 ## Setup checklist (production)
 
 1. **Convex**: `npx convex login`, then `npx convex dev --once --configure new` to create the project. Static hosting: `npx convex deploy`.

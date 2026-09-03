@@ -6,7 +6,10 @@
 //  2. every root-level asset in the bundle has a route in convex/http.ts. That
 //     router has no catch-all, so a bundled-but-unrouted file answers "No
 //     matching routes found" — which is exactly how og.png 404'd in production
-//     on the first deploy despite being embedded correctly.
+//     on the first deploy despite being embedded correctly;
+//  3. the dynamic link-preview cards are wired end to end: /og/ is routed, the
+//     HTML points og:image at it, and every card kind is both reachable from a
+//     URL and drawn by convex/og/card.ts.
 import { readFileSync } from "fs";
 
 const html = readFileSync("dist/index.html", "utf8");
@@ -60,6 +63,29 @@ for (const p of bundled) {
 for (const p of html.matchAll(/(?:href|content)="(\/[^"]+\.(?:png|ico|svg|webmanifest))"/g)) {
   if (bundled.includes(p[1])) ok.push(`head reference ${p[1]} is in the bundle`);
   else fail.push(`head references ${p[1]} but it is not in the bundle`);
+}
+
+// ── the dynamic cards ──────────────────────────────────────────────────────
+const ogRoutes = readFileSync("convex/og/routes.ts", "utf8");
+const ogData = readFileSync("convex/og/data.ts", "utf8");
+const ogCard = readFileSync("convex/og/card.ts", "utf8");
+
+if (/pathPrefix: "\/og\/"/.test(routes)) ok.push("/og/ has a pathPrefix route");
+else fail.push("convex/http.ts has no pathPrefix route for /og/ — every card would 404");
+
+if (/cardPath\(/.test(src)) ok.push("the served HTML builds og:image from cardPath()");
+else fail.push("convex/staticSite.ts no longer builds og:image from cardPath() — cards would go unused");
+
+// A kind that exists in the validator but not in the URL parser, or not in the
+// renderer, silently falls back to the brand card — the one failure mode of
+// this design that looks like success.
+const kinds = [...ogData.match(/kindValidator = v\.union\(([\s\S]*?)\);/)[1].matchAll(/v\.literal\("(\w+)"\)/g)].map((m) => m[1]);
+for (const kind of kinds) {
+  if (ogRoutes.includes(`kind: "${kind}"`)) ok.push(`card kind ${kind} is reachable from a URL`);
+  else fail.push(`card kind ${kind} is in kindValidator but convex/og/routes.ts never returns it`);
+  // "site" is cardSvg's default branch, so it has no explicit comparison.
+  if (kind === "site" || ogCard.includes(`d.kind === "${kind}"`)) ok.push(`card kind ${kind} is drawn`);
+  else fail.push(`card kind ${kind} has no branch in convex/og/card.ts`);
 }
 
 for (const o of ok) console.log("  ok   " + o);

@@ -4,6 +4,7 @@ import { auth } from "./auth";
 import { ingest } from "./discordIngest";
 import { agentmail } from "./email";
 import { serveStatic } from "./staticSite";
+import { ogImage } from "./og/image";
 
 const http = httpRouter();
 
@@ -22,6 +23,11 @@ http.route({
     agentmail.handleWebhook(ctx as unknown as Parameters<typeof agentmail.handleWebhook>[0], req),
   ),
 });
+
+// Link-preview cards, rendered from live content. Registered before the app so
+// /og/... never falls through to index.html; the static public/og.png keeps its
+// own route below as the fallback this redirects to when a render fails.
+http.route({ pathPrefix: "/og/", method: "GET", handler: ogImage });
 
 // Serve the built web app. Registered last: Convex Auth, /discord/ingest, and
 // /agentmail/webhook are matched first for their exact/prefix paths.

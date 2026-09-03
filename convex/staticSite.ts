@@ -1,5 +1,6 @@
 import { httpAction, type ActionCtx } from "./_generated/server";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
+import { cardPath, cardRouteFor } from "./og/routes";
 import { staticAssets, indexHtml } from "./staticAssets.generated";
 
 function base64ToBytes(b64: string): Uint8Array {
@@ -19,7 +20,12 @@ const SITE_NAME = "techfriend community";
 const DEFAULT_DESCRIPTION =
   "Join the techfren community from your browser or inbox — no Discord account needed.";
 
-type PageMeta = { title: string; description: string; url: string; image: string };
+type PageMeta = { title: string; description: string; url: string; image: string; alt?: string };
+
+// The card is drawn from live content, so its alt text says what that content
+// is rather than describing the brand. Screen readers on Twitter and Mastodon
+// read this out in place of the card.
+const DEFAULT_ALT = `${SITE_NAME} — the techfren Discord, on the web.`;
 
 function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -50,15 +56,19 @@ function renderMeta(m: PageMeta): string {
     `<meta property="og:title" content="${title}" />`,
     `<meta property="og:description" content="${description}" />`,
     m.url ? `<meta property="og:url" content="${esc(m.url)}" />` : "",
-    // One card for every route. Unfurlers fetch og:image themselves, from
+    // The card is rendered per route from live content by /og/<card>.png, and
+    // carries a ?v= stamped from the newest thing it shows — unfurlers cache by
+    // URL, so without that stamp Discord and Twitter would keep serving the
+    // first card they ever fetched. Unfurlers fetch og:image themselves, from
     // wherever they are, so it has to be absolute — and it is built from the
     // same origin as og:url so a preview never points at a host that didn't
     // serve the page. summary_large_image is what turns Twitter's preview from
     // a thumbnail beside the text into the full-width card the others show.
     `<meta property="og:image" content="${esc(m.image)}" />`,
+    `<meta property="og:image:type" content="image/png" />`,
     `<meta property="og:image:width" content="1200" />`,
     `<meta property="og:image:height" content="630" />`,
-    `<meta property="og:image:alt" content="${esc(SITE_NAME)} — the techfren Discord, on the web." />`,
+    `<meta property="og:image:alt" content="${esc(m.alt ?? DEFAULT_ALT)}" />`,
     `<meta name="twitter:card" content="summary_large_image" />`,
     `<meta name="twitter:image" content="${esc(m.image)}" />`,
   ]
@@ -74,16 +84,34 @@ function inject(source: string, meta: PageMeta): string {
   return source;
 }
 
+// The path of this route's link-preview card. The version stamp costs one
+// indexed read per page render; if that read fails the page still unfurls, just
+// with the static card in public/og.png.
+async function cardUrl(ctx: ActionCtx, url: URL): Promise<string> {
+  const route = cardRouteFor(url);
+  try {
+    const version = await ctx.runQuery(internal.og.data.version, {
+      kind: route.kind,
+      slug: route.slug,
+    });
+    return cardPath(route, version);
+  } catch (e) {
+    console.warn("staticSite: card version lookup failed", e);
+    return "/og.png";
+  }
+}
+
 async function metaFor(ctx: ActionCtx, url: URL): Promise<PageMeta> {
   const path = url.pathname.replace(/\/+$/, "") || "/";
   const origin = (process.env.SITE_URL ?? url.origin).replace(/\/+$/, "");
   const href = `${origin}${path === "/" ? "" : path}`;
-  const image = `${origin}/og.png`;
-  const page = (title: string, description: string): PageMeta => ({
+  const image = `${origin}${await cardUrl(ctx, url)}`;
+  const page = (title: string, description: string, alt?: string): PageMeta => ({
     title: `${title} · ${SITE_NAME}`,
     description,
     url: href,
     image,
+    alt,
   });
 
   if (path === "/") {
@@ -92,17 +120,34 @@ async function metaFor(ctx: ActionCtx, url: URL): Promise<PageMeta> {
       description: DEFAULT_DESCRIPTION,
       url: href,
       image,
+      alt: "The techfren Discord's latest daily recap and newest messages.",
     };
   }
   if (path === "/channels")
-    return page("Live chat", "Every channel of the techfren Discord, newest message first.");
+    return page(
+      "Live chat",
+      "Every channel of the techfren Discord, newest message first.",
+      "The newest messages from every channel of the techfren Discord.",
+    );
   if (path === "/leaderboard")
-    return page("Leaderboard", "Community standings, scored in Discord by the techfren bot.");
+    return page(
+      "Leaderboard",
+      "Community standings, scored in Discord by the techfren bot.",
+      "The current techfren community standings.",
+    );
   if (path === "/resources")
-    return page("Resources", "Links the community has shared, crawled and summarized automatically.");
+    return page(
+      "Resources",
+      "Links the community has shared, crawled and summarized automatically.",
+      "The links the techfren community shared most recently.",
+    );
   if (path === "/search") {
     const q = url.searchParams.get("q")?.trim();
-    return page(q ? `Search: ${q}` : "Search", "Search every message mirrored from the techfren Discord.");
+    return page(
+      q ? `Search: ${q}` : "Search",
+      "Search every message mirrored from the techfren Discord.",
+      q ? `Search results for “${q}” in the techfren Discord.` : undefined,
+    );
   }
   if (path === "/settings") return page("Settings", "Your profile, Discord link, and email digests.");
   if (path === "/signin") return page("Sign in", "Sign in with GitHub or an email link — no Discord account needed.");
@@ -116,6 +161,7 @@ async function metaFor(ctx: ActionCtx, url: URL): Promise<PageMeta> {
       name,
       channel.topic ??
         `Read ${name} on the web and post straight into the techfren Discord — no Discord account needed.`,
+      `The latest messages in ${name} on the techfren Discord.`,
     );
   }
   return page("Not found", DEFAULT_DESCRIPTION);
