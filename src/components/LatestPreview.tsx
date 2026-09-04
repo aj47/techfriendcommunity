@@ -4,7 +4,7 @@ import { useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "../../convex/_generated/api";
 import { shortAgo } from "../lib/format";
-import { mediaOf, type Media } from "../lib/linkify";
+import { linkify, mediaOf, type Media } from "../lib/linkify";
 
 // A window into the conversation, sized to stay a window: the landing page
 // leads with the alpha, and this is the reminder that there is a live Discord
@@ -68,7 +68,11 @@ function Row({ m }: { m: FeedItem }) {
                 captionless ? "italic text-zinc-500" : "text-zinc-400"
               }`}
             >
-              {text}
+              {/* Names, emoji and timestamps resolve here exactly as they do in
+                  the chat pane; only the URLs stay plain, because this whole
+                  row is already a link into the channel. `captionless` text is
+                  our own wording, not the message, so it is printed as-is. */}
+              {captionless ? text : linkify(text, m.id, m.mentions, { links: false })}
             </p>
           ) : null}
           {shown.length > 0 ? (

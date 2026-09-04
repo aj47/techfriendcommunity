@@ -110,7 +110,20 @@ function mention(label: string, key: string) {
 // `names` maps a snowflake to a display name (resolved in convex/messages.ts).
 // Without it a mention still renders — as "@someone" — so a caller with no map,
 // like the bot's own summaries, loses the name and nothing else.
-export function linkify(text: string, keyPrefix = "lk", names?: Record<string, string>): ReactNode[] {
+//
+// `links: false` leaves URLs as the text they already are. Everything else —
+// mentions, custom emoji, timestamps — still resolves, which is the point: a
+// row that is itself one big <a> cannot contain another one, but it has the
+// same reason as anywhere else not to show "<@1370407888509599804>" to a
+// reader. The <> that Discord uses to suppress a preview are still stripped,
+// since they are markup either way.
+export function linkify(
+  text: string,
+  keyPrefix = "lk",
+  names?: Record<string, string>,
+  opts?: { links?: boolean },
+): ReactNode[] {
+  const asLinks = opts?.links !== false;
   const nodes: ReactNode[] = [];
   let cursor = 0;
   let n = 0;
@@ -123,7 +136,7 @@ export function linkify(text: string, keyPrefix = "lk", names?: Record<string, s
     let end = m.index + whole.length;
 
     if (mdUrl) {
-      node = anchor(trimTrailing(mdUrl), mdLabel, `${keyPrefix}-${n++}`);
+      node = asLinks ? anchor(trimTrailing(mdUrl), mdLabel, `${keyPrefix}-${n++}`) : mdLabel;
     } else if (tsSeconds) {
       const t = discordTime(Number(tsSeconds), tsStyle ?? "f");
       if (!t) continue;
@@ -149,7 +162,9 @@ export function linkify(text: string, keyPrefix = "lk", names?: Record<string, s
     } else if (emojiId) {
       // Discord serves every custom emoji from one predictable path, animated
       // ones as gifs. Sized to the line, so a message that is six emoji stays a
-      // message rather than becoming a poster.
+      // message rather than becoming a poster — in em rather than a fixed 20px
+      // because the same renderer now runs in the home feed's smaller type,
+      // where 20px pushed the line box open and shifted the row.
       node = (
         <img
           key={`${keyPrefix}-${n++}`}
@@ -157,7 +172,7 @@ export function linkify(text: string, keyPrefix = "lk", names?: Record<string, s
           alt={`:${emojiName}:`}
           title={`:${emojiName}:`}
           loading="lazy"
-          className="inline-block h-5 w-5 align-text-bottom"
+          className="inline-block h-[1.25em] w-[1.25em] align-text-bottom"
         />
       );
     } else {
@@ -165,7 +180,7 @@ export function linkify(text: string, keyPrefix = "lk", names?: Record<string, s
       // A lone "www." or "https://" isn't a link worth making clickable.
       if (url.length < 8 || !/[a-z0-9]\.[a-z]{2,}/i.test(url)) continue;
       const href = /^www\./i.test(url) ? `https://${url}` : url;
-      node = anchor(href, url, `${keyPrefix}-${n++}`);
+      node = asLinks ? anchor(href, url, `${keyPrefix}-${n++}`) : url;
       // Discord's <url> embed-suppression brackets are swallowed only when
       // they actually wrap the URL; a stray "<" stays part of the text.
       const wrapped = open === "<" && close === ">";
