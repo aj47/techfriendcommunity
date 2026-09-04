@@ -80,7 +80,8 @@ node scripts/gen-og-runtime.mjs
 2. **Backend env** (`npx convex env set NAME value`):
    - `BRIDGE_SECRET` — long random string; the Discord bot bridge sends it as a bearer token.
    - `FIRECRAWL_API_KEY` (+ optional `FIRECRAWL_WEBHOOK_SECRET`) — link enrichment.
-   - `AGENTMAIL_API_KEY`, `AGENTMAIL_WEBHOOK_SECRET`, `AGENTMAIL_INBOX_ID` — create an inbox in AgentMail, register the webhook `https://<deployment>.convex.site/agentmail/webhook`.
+   - `AGENTMAIL_API_KEY`, `AGENTMAIL_WEBHOOK_SECRET`, `AGENTMAIL_INBOX_ID` — create an inbox in AgentMail, register the webhook at `https://<deployment>.convex.site/agentmail/webhook` (`/mailhook` is served as an alias for the same handler). Use the secret AgentMail returns **when the webhook is created** — registering a webhook mints a new one, and Svix verification fails against any older value.
+     Note that Convex components cannot read the app's env vars: each must be declared by the component and passed through in `convex/convex.config.ts`. `@agentmail/convex@0.1.0` declares none, so `scripts/patch-agentmail-env.mjs` (run from `postinstall`) adds the declaration. Without it every send fails inside the component's send pool *after* the calling mutation has already returned success.
    - `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` — GitHub OAuth app with callback `https://<deployment>.convex.site/api/auth/callback/github`.
    - `AUTH_DISCORD_ID`, `AUTH_DISCORD_SECRET` — Discord OAuth app with redirect `https://<deployment>.convex.site/api/auth/callback/discord` (or `<CUSTOM_AUTH_SITE_URL>/api/auth/callback/discord` if that is set). Reuse the bot's existing Discord application: **OAuth2 → Client ID / Client Secret**, and add the redirect there. Signing in with Discord claims the member's mirrored history and points automatically, so no `!link` code is needed.
    - `SITE_URL` — public site URL (used in emails and auth redirects).
