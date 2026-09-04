@@ -226,7 +226,11 @@ const MEDIA_LIMIT = 4;
 // screenshots. `only` reports that the body is nothing but its media, which is
 // how a Discord upload arrives; with the file on screen, printing its CDN URL
 // above it is pure noise.
-export function mediaOf(text: string): { media: Media[]; only: boolean } {
+//
+// `rest` is that same body with the embedded URLs taken out. Views that render
+// the text as plain characters rather than links need it: a caption plus a
+// hundred characters of signed CDN URL is not a sentence anyone can read.
+export function mediaOf(text: string): { media: Media[]; only: boolean; rest: string } {
   const media: Media[] = [];
   const seen = new Set<string>();
   let rest = "";
@@ -250,5 +254,6 @@ export function mediaOf(text: string): { media: Media[]; only: boolean } {
     media.push(gif ? { url: gif, kind, href } : { url: href, kind });
   }
   rest += text.slice(cursor);
-  return { media, only: media.length > 0 && rest.trim() === "" };
+  const trimmed = rest.trim();
+  return { media, only: media.length > 0 && trimmed === "", rest: trimmed };
 }
