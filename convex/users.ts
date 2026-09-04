@@ -136,12 +136,41 @@ export async function linkDiscordByCode(
   if (!code) return { ok: false, reason: "unknown code" };
   await ctx.db.delete(code._id);
   if (code.expiresAt < Date.now()) return { ok: false, reason: "expired" };
-  return await attachDiscordIdentity(ctx, {
+  const result = await attachDiscordIdentity(ctx, {
     userId: code.userId,
     discordUserId: args.discordUserId,
     name: args.name,
     avatarUrl: args.avatarUrl,
   });
+  if (result.ok) await adoptDiscordAuthAccount(ctx, code.userId, args.discordUserId);
+  return result;
+}
+
+// Convex Auth resolves an OAuth sign-in by looking up (provider,
+// providerAccountId) in authAccounts. A code-claimed identity lives only on the
+// user row, so without this the person's later "Continue with Discord" wouldn't
+// find the account that already owns their identity: it would make a fresh user,
+// attachDiscordIdentity would rightly refuse to move the link, and they would
+// land in an empty account instead of their own.
+//
+// The snowflake is as trustworthy here as it is from OAuth — it only got this
+// far because they typed the code into Discord from the account in question.
+//
+// Only for the code path. On a Discord sign-in this row is Convex Auth's to
+// create, and it does so right after the linking callback runs; inserting one
+// here first would collide on the unique providerAndAccountId index.
+async function adoptDiscordAuthAccount(ctx: MutationCtx, userId: Id<"users">, discordUserId: string) {
+  const existing = await ctx.db
+    .query("authAccounts")
+    .withIndex("providerAndAccountId", (q) =>
+      q.eq("provider", "discord").eq("providerAccountId", discordUserId),
+    )
+    .unique();
+  if (existing) {
+    if (existing.userId !== userId) await ctx.db.patch(existing._id, { userId });
+    return;
+  }
+  await ctx.db.insert("authAccounts", { userId, provider: "discord", providerAccountId: discordUserId });
 }
 
 export const reassignShadowMessages = internalMutation({
