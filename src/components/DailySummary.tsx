@@ -103,6 +103,22 @@ function teaserOf(text: string): string {
   return "";
 }
 
+// The bot summarizes the previous day, so the banner has always called this
+// "Yesterday's Highlights" — but the label was a fixed string over a date that
+// comes from whatever the newest stored summary happens to be. When a
+// summarization run fails (an empty completion from the model, say) the newest
+// row is two or more days old and the heading starts lying. Say "yesterday"
+// only when the date really is yesterday.
+function headingFor(date: string) {
+  const [y, m, d] = date.split("-").map(Number);
+  if (!y || !m || !d) return "Latest Highlights";
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday =
+    y === yesterday.getFullYear() && m === yesterday.getMonth() + 1 && d === yesterday.getDate();
+  return isYesterday ? "Yesterday’s Highlights" : "Latest Highlights";
+}
+
 function prettyDate(date: string) {
   const [y, m, d] = date.split("-").map(Number);
   if (!y || !m || !d) return date;
@@ -166,7 +182,7 @@ export default function DailySummary({ variant = "card" }: { variant?: "card" | 
               below sm — and dropping it made the banner say nothing at all. */}
           <span className="flex w-full items-center gap-2 sm:w-auto sm:shrink-0">
             <span className="shrink-0 rounded bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-emerald-400">
-              Yesterday’s Highlights
+              {headingFor(latest.date)}
             </span>
             <span className="ml-auto flex items-center gap-2 sm:hidden">
               <span className="text-xs text-zinc-500">{prettyDate(latest.date)}</span>
@@ -219,7 +235,7 @@ export default function DailySummary({ variant = "card" }: { variant?: "card" | 
   return (
     <section className="rounded-xl border border-zinc-800 bg-zinc-900/40">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-zinc-800 px-4 py-3 sm:px-5">
-        <h2 className="text-base font-semibold sm:text-lg">Yesterday’s Highlights</h2>
+        <h2 className="text-base font-semibold sm:text-lg">{headingFor(latest.date)}</h2>
         <p className="text-xs text-zinc-500">{prettyDate(latest.date)}</p>
       </div>
 
