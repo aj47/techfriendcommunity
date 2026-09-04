@@ -15,15 +15,16 @@ auth.addHttpRoutes(http);
 http.route({ path: "/discord/ingest", method: "POST", handler: ingest });
 
 // AgentMail inbound mail (Svix-verified by the component).
-http.route({
-  path: "/agentmail/webhook",
-  method: "POST",
-  // Cast: installed convex adds an options param to runMutation that the
-  // component's RunMutationCtx type (older peer range) doesn't declare. Runtime-compatible.
-  handler: httpAction(async (ctx, req) =>
-    agentmail.handleWebhook(ctx as unknown as Parameters<typeof agentmail.handleWebhook>[0], req),
-  ),
-});
+// Cast: installed convex adds an options param to runMutation that the
+// component's RunMutationCtx type (older peer range) doesn't declare. Runtime-compatible.
+const agentmailWebhook = httpAction(async (ctx, req) =>
+  agentmail.handleWebhook(ctx as unknown as Parameters<typeof agentmail.handleWebhook>[0], req),
+);
+http.route({ path: "/agentmail/webhook", method: "POST", handler: agentmailWebhook });
+// Alias: the inbox registered in AgentMail points here. Kept as a second route
+// rather than a redirect because Svix signs the body, and a 307 would make the
+// sender replay it — some webhook clients drop the signature headers on replay.
+http.route({ path: "/mailhook", method: "POST", handler: agentmailWebhook });
 
 // Link-preview cards, rendered from live content. Registered before the app so
 // /og/... never falls through to index.html; the static public/og.png keeps its
