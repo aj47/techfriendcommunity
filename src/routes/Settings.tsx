@@ -59,6 +59,7 @@ export default function Settings() {
         ) : (
           <>
             <p className="text-sm text-zinc-400">Already in the Discord? Claim your history and points: generate a code, then type <code>!link CODE</code> in any channel.</p>
+            <p className="text-xs text-zinc-500">Signing in with Discord links you automatically — this code is for accounts that signed in another way.</p>
             {code ? (
               <p className="rounded-md border border-emerald-700 bg-emerald-950/40 p-3 font-mono text-lg tracking-widest">!link {code}<span className="ml-3 text-xs font-sans tracking-normal text-zinc-400">expires in 15 min</span></p>
             ) : (
