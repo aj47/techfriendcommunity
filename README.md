@@ -44,7 +44,7 @@ npm run dev           # Vite on 0.0.0.0:5173
    - `FIRECRAWL_API_KEY` (+ optional `FIRECRAWL_WEBHOOK_SECRET`) — link enrichment.
    - `AGENTMAIL_API_KEY`, `AGENTMAIL_WEBHOOK_SECRET`, `AGENTMAIL_INBOX_ID` — create an inbox in AgentMail, register the webhook `https://<deployment>.convex.site/agentmail/webhook`.
    - `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` — GitHub OAuth app with callback `https://<deployment>.convex.site/api/auth/callback/github`.
-   - `AUTH_RESEND_KEY` — Resend key for magic-link sign-in.
+   - `AUTH_DISCORD_ID`, `AUTH_DISCORD_SECRET` — Discord OAuth app with redirect `https://<deployment>.convex.site/api/auth/callback/discord` (or `<CUSTOM_AUTH_SITE_URL>/api/auth/callback/discord` if that is set). Reuse the bot's existing Discord application: **OAuth2 → Client ID / Client Secret**, and add the redirect there. Signing in with Discord claims the member's mirrored history and points automatically, so no `!link` code is needed.
    - `SITE_URL` — public site URL (used in emails and auth redirects).
    - `ANNOUNCE_CHANNEL_SLUG` — optional; channel for the weekly leaderboard post.
    - Convex Auth also needs `JWT_PRIVATE_KEY` / `JWKS`: run `npx @convex-dev/auth` once to generate them.

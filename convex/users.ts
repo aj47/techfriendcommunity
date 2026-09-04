@@ -73,11 +73,61 @@ export async function ensureShadowUser(
   });
 }
 
-// Claim a Discord identity with a code from Settings. If a shadow user already
-// holds that Discord id (from mirrored history), its messages are reassigned
-// to the claiming account in the background — an active, long-backfilled
-// member can easily have more messages than a single mutation's read/write
-// budget (4096), so this can't be done as one synchronous loop.
+// Attach a Discord identity to an account. If a shadow user already holds that
+// Discord id (from mirrored history), its messages are reassigned to the
+// claiming account in the background — an active, long-backfilled member can
+// easily have more messages than a single mutation's read/write budget (4096),
+// so this can't be done as one synchronous loop.
+//
+// Two callers, both of which have already proven ownership of the Discord
+// account: the `!link CODE` flow below, and a Discord OAuth sign-in (see
+// convex/auth.ts). The OAuth path has already written `discordUserId` onto
+// `target` by the time this runs, so holders are read with `collect()` rather
+// than `unique()` — target and shadow can both carry the id for that instant.
+export async function attachDiscordIdentity(
+  ctx: MutationCtx,
+  args: { userId: Id<"users">; discordUserId: string; name?: string; avatarUrl?: string },
+): Promise<{ ok: boolean; reason?: string }> {
+  const target = await ctx.db.get(args.userId);
+  if (!target) return { ok: false, reason: "no user" };
+
+  const holders = await ctx.db
+    .query("users")
+    .withIndex("by_discordUserId", (q) => q.eq("discordUserId", args.discordUserId))
+    .collect();
+  for (const holder of holders) {
+    if (holder._id === target._id) continue;
+    if (!holder.isShadow) {
+      // A real, separately-authenticated account already claimed this Discord
+      // id. Sign-in still succeeds, but it doesn't get to take the link over;
+      // undo the write OAuth made so `by_discordUserId` stays single-valued.
+      if (target.discordUserId === args.discordUserId) {
+        await ctx.db.patch(target._id, { discordUserId: undefined });
+      }
+      return { ok: false, reason: "already linked to another account" };
+    }
+    // Clear the shadow's identity now so it stops being found by
+    // by_discordUserId (new messages from this Discord id will attach to
+    // `target` immediately via ensureShadowUser); the row itself is deleted
+    // once every message has been moved off it.
+    await ctx.db.patch(holder._id, { discordUserId: undefined });
+    await ctx.scheduler.runAfter(0, internal.users.reassignShadowMessages, {
+      shadowId: holder._id,
+      targetId: target._id,
+    });
+  }
+
+  await ctx.db.patch(target._id, {
+    discordUserId: args.discordUserId,
+    displayName: target.displayName ?? args.name ?? target.name,
+    avatarUrl: target.avatarUrl ?? args.avatarUrl ?? target.image,
+    role: target.role ?? "member",
+  });
+  return { ok: true };
+}
+
+// Claim a Discord identity with a code from Settings, for accounts that signed
+// in some other way. A Discord sign-in links itself and never comes through here.
 export async function linkDiscordByCode(
   ctx: MutationCtx,
   args: { code: string; discordUserId: string; name: string; avatarUrl?: string },
@@ -86,30 +136,12 @@ export async function linkDiscordByCode(
   if (!code) return { ok: false, reason: "unknown code" };
   await ctx.db.delete(code._id);
   if (code.expiresAt < Date.now()) return { ok: false, reason: "expired" };
-  const target = await ctx.db.get(code.userId);
-  if (!target) return { ok: false, reason: "no user" };
-
-  const shadow = await ctx.db
-    .query("users")
-    .withIndex("by_discordUserId", (q) => q.eq("discordUserId", args.discordUserId))
-    .unique();
-  if (shadow && shadow._id !== target._id) {
-    if (!shadow.isShadow) return { ok: false, reason: "already linked to another account" };
-    // Clear the shadow's identity now so it stops being found by
-    // by_discordUserId (new messages from this Discord id will attach to
-    // `target` immediately via ensureShadowUser); the row itself is deleted
-    // once every message has been moved off it.
-    await ctx.db.patch(shadow._id, { discordUserId: undefined });
-    await ctx.scheduler.runAfter(0, internal.users.reassignShadowMessages, {
-      shadowId: shadow._id,
-      targetId: target._id,
-    });
-  }
-  await ctx.db.patch(target._id, {
+  return await attachDiscordIdentity(ctx, {
+    userId: code.userId,
     discordUserId: args.discordUserId,
-    avatarUrl: target.avatarUrl ?? args.avatarUrl,
+    name: args.name,
+    avatarUrl: args.avatarUrl,
   });
-  return { ok: true };
 }
 
 export const reassignShadowMessages = internalMutation({
