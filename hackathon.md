@@ -2,7 +2,7 @@
 
 - **Project:** techfriendcommunity
 - **Event:** Convex All Gas hackathon
-- **What it does:** Lets people browse, post in, and get email digests from the techfren Discord community without a Discord account, with a points leaderboard and WebMCP tools for browser agents.
+- **What it does:** A public front door to the techfren community: the day's recap, the links people shared, and the live conversation — readable without an account, and postable from the web or by replying to an email digest, with a points leaderboard and WebMCP tools for browser agents.
 - **Live app:** https://www.techfriendcommunity.com (origin: https://hushed-crocodile-237.convex.site)
 - **Repo:** https://github.com/aj47/techfriendcommunity
 - **Frontend:** Convex static hosting (custom httpAction serving embedded dist/ assets)
@@ -12,7 +12,7 @@
 - **Auth:** Convex Auth
 - **AI models:** none
 - **Started:** 2026-08-27T02:54:21Z
-- **Last updated:** 2026-08-29T01:48:46Z
+- **Last updated:** 2026-09-04T22:34:00Z
 
 ## Log
 
@@ -254,3 +254,192 @@ duplicated and every emitted href is http(s). Deployed to production and
 verified the live bundle hash on both the branded domain and the
 convex.site origin (`src/components/MessageList.tsx`,
 `src/components/DailySummary.tsx`).
+
+### 2026-08-29 - b7f516a
+Bounded the message log. A one-time backfill had put ~250k rows in `messages`,
+and since document storage, four B-tree indexes and the `search_content` text
+index all scale with that count and none shrink on their own, the deployment
+had grown into Convex's free-tier limits. A daily cron now sweeps messages older
+than `MESSAGE_RETENTION_DAYS` (default 90) in self-chaining batches of 500.
+`channel_summaries` is never pruned, so the community's history stays readable
+after the raw messages behind it are gone, and a bad retention value is refused
+rather than read as "retain nothing". Convex features: crons, scheduled
+functions, internal mutations (`convex/retention.ts`, `convex/crons.ts`).
+
+### 2026-08-30 - cd45acb
+Fixed four bugs and closed the gaps a reader feels. `points.lastSyncedAt` read
+the *oldest* mirror row through an unindexed `.first()`, so the leaderboard
+footer misreported its sync time exactly when the mirror was healthy (added a
+`by_updatedAt` index); `messages.list` filtered deleted rows *after*
+`paginate()`, returning short pages, fixed here and in the three other readers
+that post-filtered the same way. Search had a backend query and a search index
+reachable only through the WebMCP tool — agents could search the community and
+people could not — so `/search` and a per-channel box now expose it. Added an
+error boundary keyed by path and a 404 route; one throw used to blank the whole
+app. Convex features: indexes, full-text search, paginated queries
+(`convex/points.ts`, `convex/messages.ts`, `src/routes/Search.tsx`).
+
+### 2026-09-02 - 66e71a5
+Made the page render like a chat client instead of showing machine text. Discord
+markup arrived verbatim: `[source](<url>)` left literal brackets in every
+summary, and `<t:…:t>` — a timestamp only Discord's own client draws —
+ended every recap bullet as an unreadable token. Timestamps now become `<time>`
+elements in the reader's locale and zone; bare image and video URLs render as
+the file, with an angle-bracketed URL linking but never embedding, which is
+exactly what those brackets mean. Expired CDN links fail closed to plain text
+(`src/lib/linkify.tsx`, `src/components/MediaEmbeds.tsx`, `src/routes/Home.tsx`).
+
+### 2026-09-03 - 52a7317
+Rebuilt the chat as a three-pane shell: channels on the left, conversation in the
+middle, the day's recap on the right. The landing page had put the summary and
+resource list above the feed, so the thing the site is for started below the
+fold and the channel list lived on its own page. `/` and `/channels/:slug` now
+render inside one shell, so picking a room swaps only the middle pane and leaves
+the rail and recap subscriptions alone. The shell wraps `<Routes>` from outside
+rather than being a layout route — inside the path-keyed ErrorBoundary it would
+rebuild on every navigation, flashing both panes back to "Loading…". Below xl the
+recap folds into a drawer, below md so does the rail (`src/components/ChatShell.tsx`,
+`src/components/ChannelRail.tsx`, `src/components/RecapPanel.tsx`).
+
+### 2026-09-03 - ef52b7e
+Gave the site a real icon set and shared links a card. Every link to the site had
+unfurled as a bare grey box — no `og:image` at all, and `twitter:card` set to the
+thumbnail-beside-text variant — and the only icon was a 9.5 KB Figma export that
+drew the bolt's sheen with fifteen blurred ellipses behind an alpha mask, which
+turns to mush by 32px. Rebuilt the mark as three gradient stops and generated the
+full set from it: a 1200×630 card in the app's own palette, a multi-size `.ico`,
+an apple-touch-icon, and maskable PWA icons behind a manifest
+(`scripts/gen-brand.sh`, `public/site.webmanifest`, `convex/staticSite.ts`).
+
+### 2026-09-03 - 2e2e321
+Led with the recap and made the chat one destination. The landing page was the
+cross-channel feed, which put the two things a cold visitor wants — what happened
+and what the community found — in a side pane at xl and behind a drawer
+everywhere else. `/` is a document now: Yesterday's Highlights and Latest Alpha
+take two thirds of the grid with the conversation as a preview beside them, and
+"Live chat" opens the feed at `/channels`. The channel *directory* that used to
+live there is gone: its rail is the same list already on screen
+(`src/routes/Home.tsx`, `src/routes/LiveChat.tsx`, `src/lib/appShell.ts`).
+
+### 2026-09-03 - 9bbb84f
+Every route now draws its own link preview from what the community just said —
+the recap and newest messages on `/`, the channel and its last words on
+`/channels/<slug>`, the top three on `/leaderboard`, the query and a hit on
+`/search`. `/og/<card>.png` builds the card as SVG and rasterizes it with resvg
+compiled to WebAssembly, which the Convex runtime runs fine: ~30ms to init an
+isolate and ~120ms a card, so there is no external render service in the path and
+no CDN to be down. The wasm binary and the Inter subsets are base64 inside a
+committed generated module so a cold start fetches nothing; since resvg will not
+measure text and there is no canvas, layout wraps against advance widths
+generated from those same subsets. Convex features: HTTP actions
+(`convex/og/`, `convex/ogRuntime.generated.ts`, `scripts/gen-og-runtime.mjs`).
+
+### 2026-09-03 - bc88be1
+Kept reaction GIFs out of resources. A Tenor or Klipy share is a reaction, not a
+page worth reading, but it was being queued for Firecrawl like any other link.
+`isGifHost` matches the known GIF hosts with their subdomains and
+`isCrawlableResource` excludes them along with Discord CDN uploads and raw media
+extensions. Klipy was added on evidence: 27 of the 200 most recent links, second
+only to x.com, because Discord's own GIF picker emits it (`convex/lib/urls.ts`).
+
+### 2026-09-03 - e171954
+Opened on the content and stopped calling this a Discord front end. The framing
+had led with the mirror rather than with what a visitor gets, which undersells the
+product and misdescribes it. Also versioned the icon URLs, since a new favicon
+otherwise stays invisible behind the old cached one
+(`src/components/Layout.tsx`, `convex/staticSite.ts`).
+
+### 2026-09-03 - cc69f1f
+Rendered mentions, custom emoji and GIF links as what they are. The mirror stores
+Discord's raw markup, so a message that read as a name in Discord arrived here as
+a raw `<@…>` snowflake — a database error in the middle of a sentence. Names
+resolve server-side, where users and channels can be indexed, and draw as a chip
+rather than a link, since clicking a name in a mirror has nowhere to go; an
+unresolved id reads "@someone". GIF-host pages are not images whatever their path
+ends in — tenor.com's own picker emits a `.gif` URL that 301s to HTML — so `/gif`
+resolves the page to its `og:image` and redirects, allow-listed and per-view so it
+works on everything already mirrored. Klipy stays a plain link on purpose: it
+answers 403 to any non-browser request, verified against both UAs
+(`convex/messages.ts`, `convex/gif.ts`, `src/lib/linkify.tsx`).
+
+### 2026-09-03 - 31f79c5
+Showed what a member earned, not just what they have left. Points are spendable
+in Discord — role colour, GIF bypasses, frenbot access and `/ask-fred` all draw
+the balance down — so the mirrored number answers "who has points left", not "who
+has contributed": 2,529 of the 4,619 points ever awarded have been spent, and the
+top contributor by a wide margin sat sixth on the board. The bridge now sends
+`lifetimePoints` beside `points`, and `syncMirror` takes the highest of what
+arrived, what is stored, and the balance itself, so a bot older than the column
+cannot reset what the mirror knows (`convex/points.ts`, `convex/schema.ts`,
+`src/routes/Leaderboard.tsx`).
+
+### 2026-09-03 - fdb7f9d
+Gave the resources page the same preview cards as the landing page — preview
+image on top, then title, host, date, summary and tags. Both queries already
+returned `imageUrl`; the duplicated `hostOf` helper is gone in favour of the
+shared one (`src/routes/Resources.tsx`, `src/lib/linkPreview.ts`).
+
+### 2026-09-04 - 854a1a7
+Fixed three things the landing page got wrong. The recap said "yesterday" whether
+or not the summary was actually from yesterday; the latest-messages feed rendered
+bodies as plain characters, so a reply opening with two pings arrived as raw
+snowflakes three lines of code away from the chat pane that resolves them. The
+feed had avoided `linkify` for one real reason — every row is itself an `<a>` and
+anchors cannot nest — which only ever applied to URLs, so `linkify` takes a
+`links: false` option and everything else resolves as it does everywhere. Custom
+emoji are now sized in `em`, invisible at 15px text and wrong at the feed's 13px
+(`src/components/LatestPreview.tsx`, `src/lib/linkify.tsx`).
+
+### 2026-09-04 - 4d8c6d3
+Replaced magic-link sign-in with Discord OAuth that links itself. The Resend
+provider was registered without `AUTH_RESEND_KEY` ever being set on production,
+so `signIn("resend")` rejected server-side, and SignIn only called `setSent(true)`
+from `.then()` — a rejection rendered nothing and the button appeared dead. Both
+remaining providers hand us a verified address, so digests still have somewhere
+to go. Signing in with Discord *is* the link: the OAuth handshake already proves
+the person owns the account, which is what the `!link CODE` round trip existed to
+establish, so the shadow user holding their mirrored history and points is
+absorbed during sign-in. Convex features: Convex Auth with Discord and GitHub
+OAuth (`convex/auth.ts`, `convex/users.ts`, `src/routes/SignIn.tsx`).
+
+### 2026-09-04 - 3f68dfd
+AgentMail had never sent a message from production, and the cause was not a
+missing key. Convex components are isolated from the app's environment: a
+component sees only what its own `defineComponent` declares and the app passes in
+`convex.config`. Firecrawl declares its env block, which is why crawling always
+worked; `@agentmail/convex@0.1.0` declares none while its code still reads
+`process.env.AGENTMAIL_API_KEY` from inside the component, so the key was
+permanently undefined there. The failure was invisible: `sendDigests` returns
+after enqueuing to the component's send pool, so it reported `sent:1` while every
+delivery died in a pool worker seconds later. A postinstall patch adds the missing
+declaration, and the webhook is now served at `/mailhook` as well
+(`scripts/patch-agentmail-env.mjs`, `convex/convex.config.ts`, `convex/http.ts`).
+
+### 2026-09-04 - 72972bf
+Gave a code-claimed Discord identity its auth account, so signing in finds it.
+Convex Auth resolves an OAuth sign-in by `(provider, providerAccountId)` in
+`authAccounts`, but `!link CODE` recorded the snowflake only on the user row —
+with no matching auth account the sign-in fell through to email linking, and for
+anyone whose Discord address differs from their GitHub one that meant a brand new
+empty account. All three accounts that had used `!link` were in this state and
+have been repaired. `linkDiscordByCode` now writes the auth account as part of
+claiming the identity; the snowflake is exactly as trustworthy there as from
+OAuth, since it only arrives because the person typed the code from that account
+(`convex/users.ts`).
+
+### 2026-09-04 - 77ffa87
+Made reply-by-email decide who is speaking from a secret rather than from the
+`From:` header. An inbound reply was trusted on the strength of its sender
+address: `onMessageReceived` looked it up in `users` and posted to Discord under
+that member's name and avatar. AgentMail's inbound payload carries no headers and
+no SPF/DKIM result, so that address is an unverified claim — putting a member's
+address on an email was enough to speak as them. Every digest now carries a
+per-subscription reply key in its subject, and the key alone authenticates; the
+sender address stays as a second check so a leaked key cannot be replayed
+elsewhere. Also charged the email path the Discord bot's GIF limit (1 per 5
+minutes), which a member had found and used as a way around it, moved the
+idempotency check ahead of the rate limit so a webhook retry no longer spends
+someone's quota, and put a daily sweep on the `processed_emails` table. Convex
+features: indexes, rate-limiter component, crons, scheduled functions
+(`convex/email.ts`, `convex/lib/replyToken.ts`, `convex/retention.ts`).
+On branch `fix/email-sender-auth` (PR #2), deployed to production.
