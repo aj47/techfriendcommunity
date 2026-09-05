@@ -84,3 +84,42 @@ export const enforceRetention = internalMutation({
     return { deleted: total, done: false };
   },
 });
+
+// Idempotency keys for inbound email. They exist only to outlive AgentMail's
+// webhook retries, so a fortnight is already generous — but nothing read them
+// back and nothing deleted them either, so the table grew forever. Swept on its
+// own daily cron rather than folded into the message sweep above, so a stall in
+// one never holds up the other.
+const PROCESSED_EMAIL_RETENTION_DAYS = 14;
+const PROCESSED_EMAIL_BATCH = 500;
+const PROCESSED_EMAIL_MAX_BATCHES = 20;
+
+export const sweepProcessedEmails = internalMutation({
+  args: { batch: v.optional(v.number()), deleted: v.optional(v.number()) },
+  handler: async (ctx, { batch = 0, deleted = 0 }) => {
+    const cutoff = Date.now() - PROCESSED_EMAIL_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+    // Safe for the same reason the message sweep is: every row read here is
+    // deleted, so the next `.take()` returns the next page rather than this one.
+    const rows = await ctx.db
+      .query("processed_emails")
+      .withIndex("by_createdAt", (q) => q.lt("createdAt", cutoff))
+      .take(PROCESSED_EMAIL_BATCH);
+
+    for (const row of rows) await ctx.db.delete(row._id);
+    const total = deleted + rows.length;
+
+    if (rows.length < PROCESSED_EMAIL_BATCH) {
+      if (total > 0) console.log("retention: processed_emails swept", { deleted: total });
+      return { deleted: total, done: true };
+    }
+    if (batch + 1 >= PROCESSED_EMAIL_MAX_BATCHES) {
+      console.warn("retention: processed_emails hit MAX_BATCHES", { deleted: total });
+      return { deleted: total, done: false };
+    }
+    await ctx.scheduler.runAfter(0, internal.retention.sweepProcessedEmails, {
+      batch: batch + 1,
+      deleted: total,
+    });
+    return { deleted: total, done: false };
+  },
+});

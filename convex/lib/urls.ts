@@ -78,3 +78,18 @@ export function isCrawlableResource(rawUrl: string): boolean {
     return false;
   }
 }
+
+const GIF_EXT = /\.gifv?$/i;
+
+// Whether a link is a GIF post, by the same two rules the Discord bot applies
+// in gif_utils.py: a known GIF host, or a direct .gif/.gifv file. Kept separate
+// from isCrawlableResource, which asks a different question (is this worth
+// reading) and happens to exclude GIFs on the way to answering it.
+export function isGifUrl(rawUrl: string): boolean {
+  try {
+    const u = new URL(rawUrl);
+    return isGifHost(u.hostname) || GIF_EXT.test(u.pathname);
+  } catch {
+    return false;
+  }
+}

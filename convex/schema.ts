@@ -148,7 +148,9 @@ export default defineSchema({
   processed_emails: defineTable({
     dedupeKey: v.string(),
     createdAt: v.number(),
-  }).index("by_dedupeKey", ["dedupeKey"]),
+  })
+    .index("by_dedupeKey", ["dedupeKey"])
+    .index("by_createdAt", ["createdAt"]),
 
   link_resources: defineTable({
     url: v.string(),
@@ -190,9 +192,14 @@ export default defineSchema({
     channelId: v.id("channels"),
     cadence: v.union(v.literal("daily"), v.literal("weekly")),
     lastSentAt: v.optional(v.number()),
+    // Authenticates a reply to this subscription's digests; see lib/replyToken.
+    // Optional only so rows written before it existed still validate —
+    // sendDigests mints one before the subject line can ever carry it.
+    replyToken: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
-    .index("by_channel_cadence", ["channelId", "cadence"]),
+    .index("by_channel_cadence", ["channelId", "cadence"])
+    .index("by_replyToken", ["replyToken"]),
 
   // Maps an AgentMail thread back to (user, channel): one thread per pair, forever.
   digest_threads: defineTable({

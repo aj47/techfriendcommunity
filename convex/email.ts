@@ -5,8 +5,9 @@ import { components, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireUser } from "./lib/requireUser";
 import { rateLimiter } from "./lib/rateLimits";
-import { extractUrls } from "./lib/urls";
+import { extractUrls, isGifUrl } from "./lib/urls";
 import { extractEmail, sanitizeEmailReply } from "./lib/sanitizeEmailReply";
+import { newReplyToken, parseSubjectTag, subjectTag, tokensMatch } from "./lib/replyToken";
 import { enqueueLinks } from "./links";
 
 // The app's inbox. Digests go out from it; replies come back to it.
@@ -19,8 +20,6 @@ function inboxId(): string {
   if (!id) throw new Error("AGENTMAIL_INBOX_ID is not set");
   return id;
 }
-
-const SUBJECT_RE = /\[#([a-z0-9-]+)\]/i;
 
 // ---- subscriptions ----------------------------------------------------------
 
@@ -49,10 +48,15 @@ export const subscribe = mutation({
     const existing = (await ctx.db.query("digest_subscriptions").withIndex("by_user", (q) => q.eq("userId", user._id)).collect())
       .find((s) => s.channelId === channel._id);
     if (existing) {
-      await ctx.db.patch(existing._id, { cadence });
+      await ctx.db.patch(existing._id, { cadence, replyToken: existing.replyToken ?? newReplyToken() });
       return { updated: true, channel: channel.name, cadence };
     }
-    await ctx.db.insert("digest_subscriptions", { userId: user._id, channelId: channel._id, cadence });
+    await ctx.db.insert("digest_subscriptions", {
+      userId: user._id,
+      channelId: channel._id,
+      cadence,
+      replyToken: newReplyToken(),
+    });
     return { updated: false, channel: channel.name, cadence };
   },
 });
@@ -87,6 +91,7 @@ async function buildDigest(ctx: MutationCtx, user: Doc<"users">, channel: Doc<"c
     topLines.length ? `This week's top members:\n${topLines.join("\n")}` : "",
     "",
     `Reply to this email to post in #${channel.name} as ${user.displayName ?? user.handle ?? "you"}. Your reply appears in Discord and on the site.`,
+    `Leave the subject line alone — it carries your private reply key. Anyone who can read this email can post as you, so don't forward it.`,
     `Manage digests: ${process.env.SITE_URL ?? ""}/settings`,
   ].join("\n");
   return { count: msgs.length, body };
@@ -105,9 +110,13 @@ export const sendDigests = internalMutation({
       const since = sub.lastSentAt ?? now - (cadence === "daily" ? 1 : 7) * 86_400_000;
       const digest = await buildDigest(ctx, user, channel, since);
       if (!digest) { skipped++; continue; }
+      // Older subscriptions predate reply keys; mint one on the way out so the
+      // first digest a member receives after this ships is already replyable.
+      const replyToken = sub.replyToken ?? newReplyToken();
+      if (!sub.replyToken) await ctx.db.patch(sub._id, { replyToken });
       await agentmail.sendMessage(ctx, inboxId(), {
         to: user.email,
-        subject: `[#${channel.slug}] ${digest.count} new in #${channel.name} — techfriend community`,
+        subject: `${subjectTag(channel.slug, replyToken)} ${digest.count} new in #${channel.name} — techfriend community`,
         text: digest.body,
         labels: ["digest", channel.slug],
       });
@@ -125,33 +134,66 @@ export const onMessageReceived = internalMutation({
   handler: async (ctx, { message }) => {
     const fromEmail = extractEmail(message.from);
     const subject: string = String(message.subject ?? "");
-    const slugMatch = subject.match(SUBJECT_RE);
-    if (!fromEmail || !slugMatch) {
-      console.log("email ignored: no sender/channel", { fromEmail, subject });
+    const tag = parseSubjectTag(subject);
+    if (!tag) {
+      console.log("email ignored: no reply key in subject", { subject: subject.slice(0, 120) });
       return { ok: false, reason: "unroutable" };
     }
-    const user = await ctx.db.query("users").withIndex("email", (q) => q.eq("email", fromEmail)).first();
-    if (!user) return { ok: false, reason: "unknown sender" };
-    if (user.role === "banned") return { ok: false, reason: "banned" };
-    const channel = await ctx.db.query("channels").withIndex("by_slug", (q) => q.eq("slug", slugMatch[1].toLowerCase())).unique();
-    if (!channel) return { ok: false, reason: "unknown channel" };
-    const subscribed = (await ctx.db.query("digest_subscriptions").withIndex("by_user", (q) => q.eq("userId", user._id)).collect())
-      .some((s) => s.channelId === channel._id);
-    if (!subscribed) return { ok: false, reason: "not subscribed" };
 
-    const text = sanitizeEmailReply(String(message.text ?? ""));
-    if (!text) return { ok: false, reason: "empty" };
-    const { ok } = await rateLimiter.limit(ctx, "emailReply", { key: user._id });
-    if (!ok) return { ok: false, reason: "rate limited" };
-
+    // Idempotency before anything metered: AgentMail retries webhooks, and a
+    // redelivery must not spend the sender's quota on a message already posted.
     const messageId: string = String(message.message_id ?? message.id ?? "");
-    const dedupe = `mail:${messageId || `${fromEmail}:${message.timestamp ?? Date.now()}`}`;
+    const dedupe = `mail:${messageId || `${fromEmail ?? "unknown"}:${message.timestamp ?? Date.now()}`}`;
     const already = await ctx.db.query("processed_emails").withIndex("by_dedupeKey", (q) => q.eq("dedupeKey", dedupe)).unique();
     if (already) return { ok: false, reason: "duplicate" };
 
+    // The reply key decides who is speaking — never the From: header, which
+    // arrives unverified (see lib/replyToken). Looking the subscription up by
+    // its key also subsumes the old "is this member subscribed here" check:
+    // the key only exists because a subscription does.
+    const sub = await ctx.db
+      .query("digest_subscriptions")
+      .withIndex("by_replyToken", (q) => q.eq("replyToken", tag.token))
+      .unique();
+    if (!sub?.replyToken || !tokensMatch(sub.replyToken, tag.token)) {
+      console.warn("email rejected: unknown reply key", { subject: subject.slice(0, 120) });
+      return { ok: false, reason: "bad key" };
+    }
+    const user = await ctx.db.get(sub.userId);
+    const channel = await ctx.db.get(sub.channelId);
+    if (!user || !channel) return { ok: false, reason: "stale subscription" };
+    // The key names one channel. A tampered slug must not redirect the post.
+    if (channel.slug !== tag.slug) return { ok: false, reason: "channel mismatch" };
+    if (user.role === "banned") return { ok: false, reason: "banned" };
+    // Holding the key already proves access to the mailbox the digest went to.
+    // Requiring From: to still be that address stops a key that leaked out of
+    // an inbox — a forward, a shared screen — from being replayed elsewhere.
+    // A second factor on top of the key, never a substitute for it.
+    if (!fromEmail || fromEmail !== (user.email ?? "").toLowerCase()) {
+      console.warn("email rejected: sender is not the subscriber", { userId: sub.userId });
+      return { ok: false, reason: "sender mismatch" };
+    }
+
+    const text = sanitizeEmailReply(String(message.text ?? ""));
+    if (!text) return { ok: false, reason: "empty" };
+
+    const urls = extractUrls(text);
+    // The bot polices GIFs per member (1 per 5 min, or points to skip the
+    // wait), but it only ever sees guild members — a webhook post is invisible
+    // to it. Charging the same limit here keeps the route from changing the
+    // rules; without it, email is simply the cheap way to flood the channel.
+    if (urls.some(isGifUrl)) {
+      const gif = await rateLimiter.limit(ctx, "emailGif", { key: sub.userId });
+      if (!gif.ok) {
+        console.log("email rejected: gif rate limit", { userId: sub.userId });
+        return { ok: false, reason: "gif rate limited" };
+      }
+    }
+    const { ok } = await rateLimiter.limit(ctx, "emailReply", { key: user._id });
+    if (!ok) return { ok: false, reason: "rate limited" };
+
     const now = Date.now();
     await ctx.db.insert("processed_emails", { dedupeKey: dedupe, createdAt: now });
-    const urls = extractUrls(text);
     const msgId = await ctx.db.insert("messages", {
       channelId: channel._id,
       authorUserId: user._id,
