@@ -4,7 +4,6 @@ import { usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import MessageList, { type MessageView } from "../components/MessageList";
 import Composer from "../components/Composer";
-import { ChannelTools } from "../webmcp/channelTools";
 import { pageTitle, usePageMeta } from "../lib/head";
 
 // One room, as the middle pane of the chat shell: a title bar, the scrollback,
@@ -54,7 +53,6 @@ export default function Channel() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <ChannelTools slug={channel.slug} channelName={channel.name} messages={messages} />
       <div className="min-w-0 shrink-0 border-b border-zinc-800 px-3 py-2.5 sm:px-4">
         {channel.isThread && channel.parent ? (
           <Link to={`/channels/${channel.parent.slug}`} className="text-xs text-zinc-500 hover:text-zinc-300">

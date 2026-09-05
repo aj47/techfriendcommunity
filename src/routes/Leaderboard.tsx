@@ -1,43 +1,11 @@
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { text, useWebMCPTool } from "../webmcp/useWebMCPTool";
 import { pageTitle, usePageMeta } from "../lib/head";
 
 export default function Leaderboard() {
   const rows = useQuery(api.points.leaderboard, { limit: 50 });
   const syncedAt = useQuery(api.points.lastSyncedAt);
   usePageMeta(pageTitle("Leaderboard"), "Community standings, scored by the techfren bot.");
-
-  useWebMCPTool(
-    {
-      name: "get-leaderboard",
-      description:
-        "Get the community points leaderboard. Points are awarded by the techfren Discord bot, which judges each day's contributions for quality; this site mirrors those standings read-only. Rows are ranked by spendable balance and also report what each member has earned all-time, since points can be spent in Discord.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          limit: { type: "number", description: "Max rows (default 10, max 50)." },
-        },
-      },
-      async execute({ limit }: { limit?: number }) {
-        const data = rows ?? [];
-        if (data.length === 0) return text("The leaderboard is empty so far.");
-        const n = Math.min(Math.max(Math.floor(limit ?? 10), 1), 50);
-        return text(
-          `Top ${Math.min(n, data.length)} (Discord points):\n` +
-            data
-              .slice(0, n)
-              .map((r) => {
-                const who = r.user?.handle ? "@" + r.user.handle : r.name;
-                const earned = r.spent > 0 ? ` (${r.lifetimePoints} earned all-time, ${r.spent} spent)` : "";
-                return `${r.rank}. ${who} — ${r.points} pts${earned}`;
-              })
-              .join("\n"),
-        );
-      },
-    },
-    [rows],
-  );
 
   return (
     <div className="space-y-4">

@@ -81,7 +81,11 @@ export default defineSchema({
       v.literal("pending"),
       v.literal("failed"),
     ),
-    agentAssisted: v.boolean(),
+    // Legacy. Set on every message written while the site exposed WebMCP tools,
+    // where an agent could stage a draft for a human to send. The tools are gone;
+    // the column stays optional until the rows carrying it age out of retention,
+    // because Convex validates existing documents against the schema on deploy.
+    agentAssisted: v.optional(v.boolean()),
     // Resolved pointer for a reply, web- or Discord-originated (Discord's raw
     // id lives in replyToDiscordMessageId; this is set whenever the target
     // is a message we actually have). Discord threads created from a message

@@ -5,9 +5,7 @@ import { ConvexReactClient } from "convex/react";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import "./index.css";
 import App from "./App";
-import { ensureWebMCP } from "./webmcp/ensure";
 
-ensureWebMCP();
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 

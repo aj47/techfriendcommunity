@@ -6,10 +6,9 @@ import { fmtTime } from "../lib/format";
 import MessageBody from "../components/MessageBody";
 import { pageTitle, usePageMeta } from "../lib/head";
 
-// The message search index and query already existed — they were reachable only
-// through the WebMCP `search-messages` tool, so an agent could search the
-// community and the person sitting in front of it could not. This is that same
-// query, with a box in front of it.
+// The message search index and query existed well before this page did, with
+// nothing in the UI reaching them — the community was searchable in principle
+// and not in practice. This is that same query, with a box in front of it.
 export default function Search() {
   const [params, setParams] = useSearchParams();
   const q = params.get("q") ?? "";

@@ -11,7 +11,6 @@ export type MessageView = {
   content: string;
   source: "discord" | "web" | "email";
   status: "synced" | "pending" | "failed";
-  agentAssisted: boolean;
   createdAt: number;
   editedAt: number | null;
   mentions?: Record<string, string>;
@@ -126,9 +125,6 @@ export default function MessageList({ slug, messages, onLoadMore, canLoadMore, t
                   <span className="font-medium">{m.author.name}</span>
                   {sourceLabel[m.source] ? (
                     <span className="rounded bg-zinc-800 px-1 text-[10px] uppercase text-zinc-400">{sourceLabel[m.source]}</span>
-                  ) : null}
-                  {m.agentAssisted ? (
-                    <span className="rounded bg-emerald-900/60 px-1 text-[10px] uppercase text-emerald-300" title="Drafted with an agent, sent by a human">agent-assisted</span>
                   ) : null}
                   <span className="text-xs text-zinc-500">{fmtTime(m.createdAt)}</span>
                   {m.editedAt ? <span className="text-xs text-zinc-600">(edited)</span> : null}

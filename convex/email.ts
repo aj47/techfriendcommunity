@@ -202,7 +202,6 @@ export const onMessageReceived = internalMutation({
       source: "email",
       urls,
       status: "pending",
-      agentAssisted: false,
       createdAt: now,
     });
     await ctx.db.patch(channel._id, { messageCount: channel.messageCount + 1, lastMessageAt: now });

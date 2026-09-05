@@ -100,8 +100,8 @@ export const search = query({
   },
 });
 
-// Signed-in users (and the summarize-link WebMCP tool) can ask for a page to be
-// summarized. Rate-limited because each call spends Firecrawl credits.
+// Signed-in users can ask for a page to be summarized on demand. Rate-limited
+// because each call spends Firecrawl credits.
 export const requestSummary = mutation({
   args: { url: v.string() },
   handler: async (ctx, { url: raw }) => {
