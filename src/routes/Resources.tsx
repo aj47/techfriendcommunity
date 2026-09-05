@@ -4,6 +4,7 @@ import { api } from "../../convex/_generated/api";
 import { timeAgo } from "../lib/format";
 import { pageTitle, usePageMeta } from "../lib/head";
 import { hostOf, previewImageFor } from "../lib/linkPreview";
+import SummarizeLink from "../components/SummarizeLink";
 
 function useDebounced<T>(value: T, ms: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -45,6 +46,7 @@ export default function Resources() {
           className="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-base outline-none focus:border-zinc-600 sm:ml-auto sm:w-72 sm:py-1.5 sm:text-sm"
         />
       </div>
+      <SummarizeLink onAdded={() => setFilter("")} />
       <p className="text-sm text-zinc-500">
         {q ? `Matching "${q}" across every shared link.` : "Links shared in the community, crawled and summarized automatically."}
       </p>
