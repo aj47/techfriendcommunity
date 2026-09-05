@@ -12,7 +12,6 @@ import Search from "./routes/Search";
 import Settings from "./routes/Settings";
 import SignIn from "./routes/SignIn";
 import { isChatShellRoute } from "./lib/appShell";
-import { GlobalTools } from "./webmcp/globalTools";
 
 export default function App() {
   const location = useLocation();
@@ -41,7 +40,6 @@ export default function App() {
   // keeps it mounted and only the middle pane changes.
   return (
     <Layout>
-      <GlobalTools />
       {isChatShellRoute(location.pathname) ? <ChatShell>{pages}</ChatShell> : pages}
     </Layout>
   );

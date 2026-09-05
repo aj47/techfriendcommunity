@@ -5,7 +5,6 @@ Join the techfren Discord community from your browser or inbox — no Discord ac
 - **Browse and post on the web.** Messages you send appear in the real Discord server, attributed to your community account.
 - **Reply by email.** Subscribe to channel digests and reply to the email — your reply lands in the channel.
 - **Earn points.** A live leaderboard tracks community activity across Discord, web, and email.
-- **Bring your agent.** The site exposes its features as [WebMCP](https://github.com/webmachinelearning/webmcp) tools, so a browser-embedded AI agent (ChatGPT's in-app browser, Chrome 149+) can read channels, search, and stage replies collaboratively with you — the page updates live as it works.
 
 ## Stack
 
@@ -13,7 +12,6 @@ Join the techfren Discord community from your browser or inbox — no Discord ac
 - [`@firecrawl/firecrawl-convex`](https://github.com/firecrawl/firecrawl-convex) — links shared in chat are crawled and summarized into a community resources page
 - [`@agentmail/convex`](https://github.com/agentmail-to/convex) — the app's email inbox: channel digests out, replies in
 - React + Vite + TypeScript + Tailwind
-- WebMCP (`document.modelContext`) with the [GoogleChromeLabs polyfill](https://github.com/GoogleChromeLabs/webmcp-tools) as fallback
 
 ## Discord side
 
@@ -23,8 +21,8 @@ The bridge forwards messages/reactions/channel metadata to a secret-gated Convex
 endpoint. Outbound web/email posts go straight from Convex actions to Discord channel
 webhooks — no bot in the posting path.
 
-All code in this repository was started on 2026-08-27 for the Convex All Gas hackathon
-and the OpenAI WebMCP Challenge. See [hackathon.md](./hackathon.md) for the build log.
+All code in this repository was started on 2026-08-27 for the Convex All Gas hackathon.
+See [hackathon.md](./hackathon.md) for the build log.
 techfren-discord-bot is pre-existing community infrastructure; only its new bridge
 extension (dated within the submission window in that repo's history) is part of this project.
 
@@ -98,7 +96,6 @@ node scripts/gen-og-runtime.mjs
    ```
    `convex/staticSite.ts` serves `dist/` (embedded as base64 in `convex/staticAssets.generated.ts`) from an httpAction registered after the API routes, so the whole product — UI and backend — lives at one `*.convex.site` URL.
 5. **Branded domain** (`infra/cf-proxy/`): Convex custom domains are a Pro feature, so techfriendcommunity.com is kept by a Cloudflare Worker that reverse-proxies the zone to the `*.convex.site` origin (apex → www). Deploy it with `cd infra/cf-proxy && wrangler deploy`; change `ORIGIN` in `src/index.js` if the deployment moves.
-6. **WebMCP check**: open the site in ChatGPT's in-app browser or Chrome 149+ (`chrome://flags/#enable-webmcp-testing`) and run `(await document.modelContext.getTools()).map(t => t.name)` in the console.
 
 ## License
 

@@ -14,7 +14,6 @@ export default function Composer({ slug }: { slug: string }) {
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const text = draft.text;
-  const staged = draft.agentStaged && text.length > 0;
   const replyTo = draft.replyTo;
 
   if (!isAuthenticated) {
@@ -37,7 +36,7 @@ export default function Composer({ slug }: { slug: string }) {
     setSending(true);
     setError(null);
     try {
-      await post({ slug, content: text, agentAssisted: staged, replyToMessageId: replyTo?.id as Id<"messages"> | undefined });
+      await post({ slug, content: text, replyToMessageId: replyTo?.id as Id<"messages"> | undefined });
       draftStore.clearFor(slug);
     } catch (e) {
       setError(e instanceof ConvexError ? String((e.data as { message?: string })?.message ?? e.data) : "Couldn't send. Try again.");
@@ -47,13 +46,7 @@ export default function Composer({ slug }: { slug: string }) {
   };
 
   return (
-    <div className={`rounded-lg border p-2 ${staged ? "border-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.15)]" : "border-zinc-800"}`}>
-      {staged ? (
-        <div className="mb-1 flex items-center justify-between px-1 text-xs text-emerald-300">
-          <span>Drafted by your agent — review, then press Send.</span>
-          <button onClick={() => draftStore.clearFor(slug)} className="text-zinc-500 hover:text-white">Discard</button>
-        </div>
-      ) : null}
+    <div className="rounded-lg border border-zinc-800 p-2">
       {replyTo ? (
         <div className="mb-1 flex items-start justify-between gap-2 rounded-md bg-zinc-800/60 px-2 py-1.5 text-xs">
           <p className="min-w-0 text-zinc-400">
@@ -68,7 +61,7 @@ export default function Composer({ slug }: { slug: string }) {
       <textarea
         id="composer"
         value={text}
-        onChange={(e) => draftStore.setFor(slug, { text: e.target.value, agentStaged: false })}
+        onChange={(e) => draftStore.setFor(slug, { text: e.target.value })}
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void send();
         }}

@@ -75,7 +75,6 @@ async function view(ctx: QueryLike, m: Doc<"messages">) {
     content: m.content,
     source: m.source,
     status: m.status,
-    agentAssisted: m.agentAssisted,
     createdAt: m.createdAt,
     editedAt: m.editedAt ?? null,
     urls: m.urls,
@@ -177,15 +176,14 @@ async function bumpChannel(ctx: MutationCtx, channelId: Id<"channels">, at: numb
   });
 }
 
-// Post from the web (or via a WebMCP-staged draft the human sent).
+// Post from the web.
 export const post = mutation({
   args: {
     slug: v.string(),
     content: v.string(),
-    agentAssisted: v.optional(v.boolean()),
     replyToMessageId: v.optional(v.id("messages")),
   },
-  handler: async (ctx, { slug, content, agentAssisted, replyToMessageId }) => {
+  handler: async (ctx, { slug, content, replyToMessageId }) => {
     const user = await requireUser(ctx);
     if (!user.handle) throw new ConvexError({ code: "profile", message: "Pick a handle in Settings before posting." });
     const channel = await ctx.db.query("channels").withIndex("by_slug", (q) => q.eq("slug", slug)).unique();
@@ -213,7 +211,6 @@ export const post = mutation({
       source: "web",
       urls,
       status: "pending",
-      agentAssisted: !!agentAssisted,
       replyToMessageId: replyTo?._id,
       createdAt: now,
     });
@@ -319,7 +316,6 @@ export const ingest = internalMutation({
               replyToMessageId,
               urls,
               status: "synced",
-              agentAssisted: false,
               createdAt: at,
             });
             await bumpChannel(ctx, channel._id, at);

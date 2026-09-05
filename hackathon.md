@@ -2,7 +2,7 @@
 
 - **Project:** techfriendcommunity
 - **Event:** Convex All Gas hackathon
-- **What it does:** A public front door to the techfren community: the day's recap, the links people shared, and the live conversation — readable without an account, and postable from the web or by replying to an email digest, with a points leaderboard and WebMCP tools for browser agents.
+- **What it does:** A public front door to the techfren community: the day's recap, the links people shared, and the live conversation — readable without an account, and postable from the web or by replying to an email digest,, with a points leaderboard scored by the community's Discord bot.
 - **Live app:** https://www.techfriendcommunity.com (origin: https://hushed-crocodile-237.convex.site)
 - **Repo:** https://github.com/aj47/techfriendcommunity
 - **Frontend:** Convex static hosting (custom httpAction serving embedded dist/ assets)
@@ -12,7 +12,7 @@
 - **Auth:** Convex Auth
 - **AI models:** none
 - **Started:** 2026-08-27T02:54:21Z
-- **Last updated:** 2026-09-04T22:34:00Z
+- **Last updated:** 2026-09-05T07:00:00Z
 
 ## Log
 
@@ -443,3 +443,18 @@ someone's quota, and put a daily sweep on the `processed_emails` table. Convex
 features: indexes, rate-limiter component, crons, scheduled functions
 (`convex/email.ts`, `convex/lib/replyToken.ts`, `convex/retention.ts`).
 On branch `fix/email-sender-auth` (PR #2), deployed to production.
+
+### 2026-09-05 - beb3d3e
+Removed WebMCP. The OpenAI WebMCP Challenge closed Sep 3 and this was never
+entered, so the eight tools were carrying no weight — and they are the wrong
+shape for the one competition still live, which scores "everyday apps, not
+developer tools". Gone: `src/webmcp/`, the vendored GoogleChromeLabs polyfill,
+the declarative `toolname`/`tooldescription` attributes on the digest form, and
+the "Agent-ready via WebMCP" footer. `agentAssisted` stays in the schema as
+optional rather than being dropped, because Convex validates existing documents
+on deploy and live rows still carry it; nothing writes it now and it ages out
+under the retention sweep. Per-channel composer drafts were kept — persisting
+what you typed across a reload predates any agent staging it. `links.requestSummary`
+is left in place but currently has no caller: automatic crawling of every shared
+link is untouched, on-demand summarizing is not reachable from the UI until it
+gets a text box (`src/`, `convex/messages.ts`, `convex/schema.ts`, `README.md`).

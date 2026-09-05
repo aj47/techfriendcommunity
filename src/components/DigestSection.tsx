@@ -3,14 +3,6 @@ import { useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { api } from "../../convex/_generated/api";
 
-// Declarative WebMCP: the browser synthesizes a "subscribe-to-digest" tool from this
-// form. No `toolautosubmit`, so an agent can fill it but the human confirms.
-const formToolAttrs = {
-  toolname: "subscribe-to-digest",
-  tooldescription:
-    "Subscribe the signed-in person to an email digest of one community channel (daily or weekly). They can reply to the digest email to post in that channel. The browser asks the human to confirm before submitting.",
-} as Record<string, string>;
-
 export default function DigestSection() {
   const data = useQuery(api.email.mySubscriptions);
   const channels = useQuery(api.channels.list);
@@ -28,7 +20,6 @@ export default function DigestSection() {
         {email ? <span className="text-zinc-500"> Sent to {email}.</span> : <span className="text-amber-300"> Sign in with an email address to enable.</span>}
       </p>
       <form
-        {...formToolAttrs}
         className="flex flex-wrap items-end gap-2"
         onSubmit={(e) => {
           e.preventDefault();

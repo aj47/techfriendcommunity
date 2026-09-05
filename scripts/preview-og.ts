@@ -18,7 +18,7 @@ const min = 60_000;
 const room = (name: string, isThread = false) => ({ name, isThread });
 
 const RECAP =
-  "## Highlights\n- Someone shipped a WebMCP demo that drives the whole site from ChatGPT's browser\n" +
+  "## Highlights\n- Someone shipped a Convex component that mirrors a chat server into a public feed\n" +
   "- Long debate about whether Convex components should own their own schema\n" +
   "- Three people volunteered to test the AgentMail digest before Friday\n";
 
@@ -105,7 +105,7 @@ const SAMPLES: Record<string, CardData> = {
     version: "x",
     resources: [
       { title: "Convex components: schema ownership and why it matters for hackathon speed", site: "stack.convex.dev" },
-      { title: "WebMCP: making a page's own functions callable by an agent", site: "developer.chrome.com" },
+      { title: "Reactive queries: keeping a page live without polling", site: "docs.convex.dev" },
       { title: "AgentMail", site: "agentmail.to" },
     ],
   },

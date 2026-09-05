@@ -7,10 +7,10 @@
 import { useSyncExternalStore } from "react";
 
 export type ReplyTarget = { id: string; author: string; snippet: string };
-export type Draft = { text: string; agentStaged: boolean; replyTo: ReplyTarget | null };
+export type Draft = { text: string; replyTo: ReplyTarget | null };
 
 const KEY = "tfc:drafts:v1";
-const EMPTY: Draft = { text: "", agentStaged: false, replyTo: null };
+const EMPTY: Draft = { text: "", replyTo: null };
 
 type Drafts = Record<string, Draft>;
 
@@ -28,7 +28,6 @@ function load(): Drafts {
       if (value && typeof value.text === "string" && value.text.trim()) {
         out[slug] = {
           text: value.text,
-          agentStaged: !!value.agentStaged,
           replyTo: value.replyTo ?? null,
         };
       }
@@ -85,9 +84,6 @@ export const draftStore = {
   clearFor,
   replyTo(slug: string, target: ReplyTarget) {
     setFor(slug, { replyTo: target });
-  },
-  stage(slug: string, text: string, replyTo: ReplyTarget | null = null) {
-    setFor(slug, { text, agentStaged: true, replyTo });
   },
   subscribe(listener: () => void) {
     listeners.add(listener);
