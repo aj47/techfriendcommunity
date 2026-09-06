@@ -90,10 +90,16 @@ node scripts/gen-og-runtime.mjs
    `npx tsx scripts/backfill.ts --db discrawl.sqlite --url https://<deployment>.convex.site --secret "$BRIDGE_SECRET" [--since 2025-01-01]`
 4b. **Deploy the web app** (there is no separate frontend host — it's served by Convex itself):
    ```bash
-   VITE_CONVEX_URL=https://<prod-deployment>.convex.cloud VITE_CONVEX_SITE_URL=https://<prod-deployment>.convex.site npm run build
-   node scripts/gen-static-assets.mjs
-   npx convex deploy -y
+   npm run deploy
    ```
+   That is `convex deploy --cmd`: Convex resolves the target deployment first and
+   passes its URL to the build as `VITE_CONVEX_URL`, so the bundle is always
+   stamped with the deployment it is being pushed to — never a dev URL from
+   `.env.local`, and never nothing. Do not hand-run `npm run build` and deploy
+   the result; a build with `VITE_CONVEX_URL` unset used to produce a bundle that
+   loaded and then died with *No address provided to ConvexReactClient*, which is
+   now a build error (see `vite.config.ts`).
+
    `convex/staticSite.ts` serves `dist/` (embedded as base64 in `convex/staticAssets.generated.ts`) from an httpAction registered after the API routes, so the whole product — UI and backend — lives at one `*.convex.site` URL.
 5. **Branded domain** (`infra/cf-proxy/`): Convex custom domains are a Pro feature, so techfriendcommunity.com is kept by a Cloudflare Worker that reverse-proxies the zone to the `*.convex.site` origin (apex → www). Deploy it with `cd infra/cf-proxy && wrangler deploy`; change `ORIGIN` in `src/index.js` if the deployment moves.
 

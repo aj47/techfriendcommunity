@@ -7,6 +7,7 @@
     "postinstall": "node scripts/patch-agentmail-env.mjs",
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "deploy": "convex deploy -y --cmd 'npm run build && node scripts/gen-static-assets.mjs' --cmd-url-env-var-name VITE_CONVEX_URL",
     "lint": "oxlint",
     "preview": "vite preview"
   },
