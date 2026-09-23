@@ -18,6 +18,7 @@ import type * as gif from "../gif.js";
 import type * as http from "../http.js";
 import type * as lib_ogImage from "../lib/ogImage.js";
 import type * as lib_rateLimits from "../lib/rateLimits.js";
+import type * as lib_replyToken from "../lib/replyToken.js";
 import type * as lib_requireUser from "../lib/requireUser.js";
 import type * as lib_sanitizeEmailReply from "../lib/sanitizeEmailReply.js";
 import type * as lib_slug from "../lib/slug.js";
@@ -54,6 +55,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/ogImage": typeof lib_ogImage;
   "lib/rateLimits": typeof lib_rateLimits;
+  "lib/replyToken": typeof lib_replyToken;
   "lib/requireUser": typeof lib_requireUser;
   "lib/sanitizeEmailReply": typeof lib_sanitizeEmailReply;
   "lib/slug": typeof lib_slug;
