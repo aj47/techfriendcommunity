@@ -7,7 +7,7 @@ const ORIGIN = "https://hushed-crocodile-237.convex.site";
 const CANONICAL_HOST = "www.techfriendcommunity.com";
 
 export default {
-  async fetch(request) {
+  async fetch(request, _env, ctx) {
     const url = new URL(request.url);
 
     // Apex -> www only. Any other host (a workers.dev preview) proxies as-is,
@@ -18,6 +18,28 @@ export default {
     }
 
     const target = new URL(url.pathname + url.search, ORIGIN);
+    // Convex is in a separate Cloudflare zone, where fetch({ cf }) cannot
+    // override cache policy. Keep a brief copy of anonymous SPA documents in
+    // this zone's cache. Everything else, especially API and auth traffic,
+    // passes through untouched.
+    const documentPath =
+      url.pathname === "/" ||
+      /^\/(?:channels(?:\/[^/]+)?|leaderboard|resources|search|settings|signin)\/?$/.test(url.pathname);
+    const cacheDocument =
+      request.method === "GET" &&
+      request.headers.get("accept")?.includes("text/html") &&
+      !request.headers.has("authorization") &&
+      !request.headers.has("cookie") &&
+      documentPath;
+    const cacheKey = new Request(url.toString());
+    if (cacheDocument) {
+      const cached = await caches.default.match(cacheKey);
+      if (cached) {
+        const headers = new Headers(cached.headers);
+        headers.set("x-techfriend-edge-cache", "HIT");
+        return new Response(cached.body, { status: cached.status, headers });
+      }
+    }
     const upstream = await fetch(
       new Request(target, {
         method: request.method,
@@ -52,10 +74,23 @@ export default {
       }
     }
 
-    return new Response(upstream.body, {
+    const response = new Response(upstream.body, {
       status: upstream.status,
       statusText: upstream.statusText,
       headers,
     });
+    if (cacheDocument && response.status === 200 &&
+        response.headers.get("content-type")?.includes("text/html") &&
+        !response.headers.has("set-cookie")) {
+      const cacheHeaders = new Headers(response.headers);
+      cacheHeaders.set("cache-control", "public, max-age=30");
+      cacheHeaders.delete("cf-cache-status");
+      ctx.waitUntil(caches.default.put(cacheKey, new Response(response.clone().body, {
+        status: response.status,
+        headers: cacheHeaders,
+      })));
+      response.headers.set("x-techfriend-edge-cache", "MISS");
+    }
+    return response;
   },
 };

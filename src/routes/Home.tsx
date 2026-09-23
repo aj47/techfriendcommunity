@@ -21,13 +21,15 @@ export default function Home() {
 
       <DailySummary variant="banner" />
 
-      {/* No items-start: the row stretches, so the conversation column runs to
-          the same height as the cards beside it and scrolls inside itself. */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+      {/* On phones, show a short window into the live conversation before the
+          resource archive. At desktop widths both columns stretch together. */}
+      <div className="grid min-w-0 gap-4 lg:grid-cols-3">
+        <div className="order-1 min-w-0 lg:order-2">
+          <LatestPreview />
+        </div>
+        <div className="order-2 min-w-0 lg:order-1 lg:col-span-2">
           <AlphaCards />
         </div>
-        <LatestPreview />
       </div>
     </div>
   );

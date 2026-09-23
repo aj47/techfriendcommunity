@@ -33,31 +33,32 @@ export default function AlphaCards() {
           Nothing here yet — links the community shares land here once they have been read and summarized.
         </p>
       ) : (
-        <ul className="grid gap-3 p-3 sm:grid-cols-2 sm:gap-4 sm:p-4">
-          {rows.map((r) => {
+        <ul className="grid min-w-0 gap-3 p-3 sm:grid-cols-2 sm:gap-4 sm:p-4">
+          {rows.map((r, index) => {
             const image = broken.has(r.id) ? null : previewImageFor(r);
             const host = r.siteName ?? hostOf(r.url);
             return (
-              <li key={r.id}>
+              <li key={r.id} className="min-w-0">
                 <a
                   href={r.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="group flex h-full flex-col overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950/40 hover:border-zinc-600"
+                  className={`group flex h-full min-w-0 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950/40 hover:border-zinc-600 sm:flex-col ${index === 0 ? "flex-col" : "flex-row"}`}
                 >
                   {image ? (
                     <img
                       src={image}
                       alt=""
                       loading="lazy"
+                      decoding="async"
                       referrerPolicy="no-referrer"
                       onError={() => setBroken((s) => new Set(s).add(r.id))}
-                      className="aspect-[16/9] w-full bg-zinc-900 object-cover"
+                      className={`shrink-0 bg-zinc-900 object-cover sm:aspect-[16/9] sm:w-full ${index === 0 ? "aspect-[16/9] w-full" : "h-24 w-24 sm:h-auto"}`}
                     />
                   ) : (
-                    // No stored image. The domain, set large, is still a
-                    // recognisable mark — and every card keeps the same shape.
-                    <div className="flex aspect-[16/9] w-full items-center justify-center bg-gradient-to-br from-zinc-900 to-zinc-800 px-4">
+                    // No stored image. The domain fills the same thumbnail
+                    // space as an image at each breakpoint.
+                    <div className={`flex shrink-0 items-center justify-center bg-gradient-to-br from-zinc-900 to-zinc-800 px-2 sm:aspect-[16/9] sm:h-auto sm:w-full sm:px-4 ${index === 0 ? "aspect-[16/9] w-full" : "h-24 w-24"}`}>
                       <span className="truncate text-sm font-medium text-zinc-500">{host}</span>
                     </div>
                   )}
@@ -66,7 +67,7 @@ export default function AlphaCards() {
                       {r.title ?? r.url}
                     </p>
                     {r.summary ? (
-                      <p className="line-clamp-2 break-words text-sm text-zinc-400">{r.summary}</p>
+                      <p className={`break-words text-sm text-zinc-400 ${index === 0 ? "line-clamp-2" : "hidden sm:line-clamp-2"}`}>{r.summary}</p>
                     ) : r.crawlStatus === "pending" ? (
                       <p className="text-sm italic text-zinc-600">Summarizing…</p>
                     ) : null}

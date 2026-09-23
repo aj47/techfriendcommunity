@@ -36,7 +36,22 @@ function youtubeId(url: string): string | null {
 }
 
 export function previewImageFor(row: { url: string; imageUrl?: string | null }): string | null {
-  if (row.imageUrl) return row.imageUrl;
+  if (row.imageUrl) {
+    // Crawled X metadata sometimes stores HTML-escaped query separators. X's
+    // "small" rendition is 680px wide, enough for these ~320px cards at 2x,
+    // and avoids downloading a full video still for a thumbnail.
+    const raw = row.imageUrl.replaceAll("&amp;", "&");
+    try {
+      const image = new URL(raw);
+      if (image.hostname === "pbs.twimg.com" && image.searchParams.has("name")) {
+        image.searchParams.set("name", "small");
+        return image.toString();
+      }
+    } catch {
+      // The image will fail and the card's domain fallback will take over.
+    }
+    return raw;
+  }
   const yt = youtubeId(row.url);
   return yt ? `https://i.ytimg.com/vi/${yt}/hqdefault.jpg` : null;
 }
