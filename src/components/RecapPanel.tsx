@@ -12,7 +12,7 @@ import ResourcesTease from "./ResourcesTease";
 const SUMMARY_LIMIT = 6;
 const LINK_LIMIT = 9;
 
-export default function RecapPanel() {
+export default function RecapPanel({ showHeader = true }: { showHeader?: boolean }) {
   const summary = useQuery(api.summaries.latest, { limit: SUMMARY_LIMIT });
   const links = useQuery(api.links.list, { limit: LINK_LIMIT });
   const loading = summary === undefined || links === undefined;
@@ -20,9 +20,11 @@ export default function RecapPanel() {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-y-auto">
-      <div className="sticky top-0 z-[1] shrink-0 border-b border-zinc-800 bg-zinc-950/95 px-4 py-3 backdrop-blur">
-        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Recap</h2>
-      </div>
+      {showHeader ? (
+        <div className="sticky top-0 z-[1] shrink-0 border-b border-zinc-800 bg-zinc-950/95 px-4 py-3 backdrop-blur">
+          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Recap</h2>
+        </div>
+      ) : null}
       <div className="space-y-4 p-3">
         {loading ? <p className="px-1 text-sm text-zinc-600">Loading…</p> : null}
         {empty ? (

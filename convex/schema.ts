@@ -110,6 +110,17 @@ export default defineSchema({
       filterFields: ["channelId"],
     }),
 
+  // Anonymous field performance samples. No URL query, account ID, IP, or UA
+  // is stored; only coarse route/device/auth groups are needed for p75 trends.
+  vital_samples: defineTable({
+    name: v.union(v.literal("LCP"), v.literal("INP"), v.literal("CLS")),
+    value: v.number(),
+    page: v.string(),
+    device: v.union(v.literal("mobile"), v.literal("tablet"), v.literal("desktop")),
+    cohort: v.union(v.literal("visitor"), v.literal("member")),
+    createdAt: v.number(),
+  }).index("by_createdAt", ["createdAt"]),
+
   // Read-only mirror of the Discord bot's user_points table, pushed by the
   // bridge. The bot's LLM-judged points are the community's only scoring
   // system; nothing here computes or awards points.

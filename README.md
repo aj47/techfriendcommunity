@@ -34,6 +34,20 @@ npx convex dev        # dev deployment + codegen (or CONVEX_AGENT_MODE=anonymous
 npm run dev           # Vite on 0.0.0.0:5173
 ```
 
+### Page performance
+
+On the public www site, a small deferred `web-vitals` chunk reports LCP, INP,
+and CLS to `/api/vitals`. Samples contain only a coarse page name, viewport
+group (mobile/tablet/desktop), signed-in or visitor group, metric, and value.
+They contain no account ID, full URL, query, or user-agent, and expire after
+30 days. Local development does not report samples.
+
+After traffic has arrived, inspect the latest seven days of p75 values with
+`npx convex run vitals:summary --prod` from a configured checkout. The query
+reports up to the latest 1,000 samples and marks a capped result. Use this
+alongside a repeatable mobile Lighthouse run to diagnose a slow page, rather
+than treating server response time as the entire load experience.
+
 ### Brand assets
 
 The favicon, app icons and the `og.png` link-preview card in `public/` are

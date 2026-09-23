@@ -12,6 +12,9 @@ const LIMIT = 8;
 
 export default function AlphaCards() {
   const rows = useQuery(api.links.list, { limit: LIMIT });
+  // The lead image sits above the fold in the wide two-column layout. On
+  // phones the live-chat preview comes first, so keep it lazy there.
+  const leadImageVisible = typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches;
   // Hotlinked og:images rot: the page moves, the CDN expires the object, the
   // host refuses a foreign referrer. A card that falls back to its domain reads
   // as deliberate; a broken-image glyph reads as a bug.
@@ -49,7 +52,8 @@ export default function AlphaCards() {
                     <img
                       src={image}
                       alt=""
-                      loading="lazy"
+                      loading={index === 0 && leadImageVisible ? "eager" : "lazy"}
+                      fetchPriority={index === 0 && leadImageVisible ? "high" : undefined}
                       decoding="async"
                       referrerPolicy="no-referrer"
                       onError={() => setBroken((s) => new Set(s).add(r.id))}

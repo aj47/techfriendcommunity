@@ -1,4 +1,5 @@
 import { v, ConvexError } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 import { FirecrawlClient } from "@firecrawl/firecrawl-convex";
 import { internalAction, internalMutation, internalQuery, mutation, query, type MutationCtx } from "./_generated/server";
 import { components, internal } from "./_generated/api";
@@ -75,6 +76,15 @@ export const list = query({
   },
 });
 
+export const listPage = query({
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, { paginationOpts }) => {
+    const page = await ctx.db.query("link_resources")
+      .withIndex("by_createdAt").order("desc").paginate(paginationOpts);
+    return { ...page, page: page.page.map(view) };
+  },
+});
+
 export const byUrl = query({
   args: { url: v.string() },
   handler: async (ctx, { url }) => {
@@ -97,6 +107,16 @@ export const search = query({
       .withSearchIndex("search_text", (s) => s.search("searchText", q))
       .take(Math.min(limit ?? 20, 50));
     return rows.map(view);
+  },
+});
+
+export const searchPage = query({
+  args: { query: v.string(), paginationOpts: paginationOptsValidator },
+  handler: async (ctx, { query: q, paginationOpts }) => {
+    const page = await ctx.db.query("link_resources")
+      .withSearchIndex("search_text", (s) => s.search("searchText", q.trim()))
+      .paginate(paginationOpts);
+    return { ...page, page: page.page.map(view) };
   },
 });
 

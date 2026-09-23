@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import ChannelRail from "./ChannelRail";
 import RecapPanel from "./RecapPanel";
@@ -13,6 +13,70 @@ import RecapPanel from "./RecapPanel";
 // so does the rail. The conversation is the pane that is always on screen.
 type Pane = "rail" | "recap";
 
+function MobileDrawer({ pane, onDismiss }: { pane: Pane; onDismiss: () => void }) {
+  const ref = useRef<HTMLDialogElement>(null);
+
+  useLayoutEffect(() => {
+    const dialog = ref.current;
+    if (!dialog) return;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dialog.showModal(); // Native modal behavior keeps Tab inside and makes the page inert.
+    return () => {
+      if (dialog.open) dialog.close();
+      if (opener?.isConnected) opener.focus();
+    };
+  }, []);
+
+  return (
+    <dialog
+      ref={ref}
+      aria-label={pane === "rail" ? "Channels" : "Recap"}
+      // StrictMode briefly closes and reopens effects in development. Ignore
+      // the delayed close event if the same dialog has since reopened.
+      onClose={() => { if (!ref.current?.open) onDismiss(); }}
+      onKeyDown={(e) => {
+        if (e.key !== "Tab") return;
+        const items = [...e.currentTarget.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        )].filter((item) => item.getClientRects().length > 0);
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (e.shiftKey && (document.activeElement === first || document.activeElement === e.currentTarget)) {
+          e.preventDefault();
+          last?.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first?.focus();
+        }
+      }}
+      onClick={(e) => {
+        // A click on the backdrop targets the dialog itself, outside its box.
+        if (e.target !== e.currentTarget) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
+          e.currentTarget.close();
+        }
+      }}
+      className={`fixed inset-y-0 h-dvh max-h-none w-[85%] max-w-sm overflow-hidden border-zinc-800 bg-zinc-950 p-0 text-zinc-100 shadow-2xl backdrop:bg-black/65 open:flex open:flex-col ${
+        pane === "rail" ? "ml-0 mr-auto border-r" : "ml-auto mr-0 border-l"
+      }`}
+    >
+      <div className="flex shrink-0 items-center justify-between border-b border-zinc-800 px-4 py-2">
+        <h2 className="text-sm font-semibold">{pane === "rail" ? "Channels" : "Recap"}</h2>
+        <button
+          type="button"
+          autoFocus
+          onClick={() => ref.current?.close()}
+          className="rounded-md px-2 py-1 text-sm text-zinc-300 hover:bg-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
+        >
+          Close
+        </button>
+      </div>
+      <div className="min-h-0 flex-1">{pane === "rail" ? <ChannelRail /> : <RecapPanel showHeader={false} />}</div>
+    </dialog>
+  );
+}
+
 export default function ChatShell({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   // Which pane is open, and the route it was opened from. Navigating is the
@@ -23,15 +87,6 @@ export default function ChatShell({ children }: { children: ReactNode }) {
   const [opened, setOpened] = useState<{ pane: Pane; at: string } | null>(null);
   const drawer = opened && opened.at === pathname ? opened.pane : null;
   const open = (pane: Pane) => setOpened({ pane, at: pathname });
-
-  useEffect(() => {
-    if (!drawer) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpened(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [drawer]);
 
   const button = "rounded-md border border-zinc-800 px-2.5 py-1 text-xs text-zinc-300 hover:bg-zinc-900";
 
@@ -69,28 +124,7 @@ export default function ChatShell({ children }: { children: ReactNode }) {
         <RecapPanel />
       </aside>
 
-      {drawer ? (
-        // z-30 clears the sticky header (z-10) so the drawer covers the app
-        // rather than sliding under its top bar.
-        <div className="fixed inset-0 z-30 flex xl:hidden">
-          <button
-            type="button"
-            aria-label="Close panel"
-            onClick={() => setOpened(null)}
-            className="absolute inset-0 bg-black/60"
-          />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={drawer === "rail" ? "Channels" : "Recap"}
-            className={`relative flex min-h-0 w-[85%] max-w-sm flex-col border-zinc-800 bg-zinc-950 ${
-              drawer === "rail" ? "border-r" : "ml-auto border-l"
-            }`}
-          >
-            {drawer === "rail" ? <ChannelRail /> : <RecapPanel />}
-          </div>
-        </div>
-      ) : null}
+      {drawer ? <MobileDrawer pane={drawer} onDismiss={() => setOpened(null)} /> : null}
     </div>
   );
 }

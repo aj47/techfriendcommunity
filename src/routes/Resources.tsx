@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "convex/react";
+import { usePaginatedQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { timeAgo } from "../lib/format";
 import { pageTitle, usePageMeta } from "../lib/head";
@@ -23,13 +23,14 @@ export default function Resources() {
   const [broken, setBroken] = useState<Set<string>>(new Set());
   usePageMeta(pageTitle("Resources"), "Links the community has shared, crawled and summarized automatically.");
 
-  // The filter box used to match only the rows already on screen, so anything
-  // past the newest 100 links was invisible to it — searching the archive
-  // silently reported "nothing here". It now runs the backend search index.
+  // Both views page at the source. Even a large archive now starts with just
+  // enough cards to browse, and search can continue past its first page.
   const q = useDebounced(filter.trim(), 250);
-  const recent = useQuery(api.links.list, { limit: 100 });
-  const found = useQuery(api.links.search, q ? { query: q, limit: 50 } : "skip");
-  const rows = q ? found : recent;
+  const recent = usePaginatedQuery(api.links.listPage, q ? "skip" : {}, { initialNumItems: 18 });
+  const found = usePaginatedQuery(api.links.searchPage, q ? { query: q } : "skip", { initialNumItems: 18 });
+  const page = q ? found : recent;
+  const { results: rows, status, loadMore } = page;
+  const searching = filter.trim() !== q || status === "LoadingFirstPage";
 
   return (
     <div className="space-y-4">
@@ -50,11 +51,15 @@ export default function Resources() {
       <p className="text-sm text-zinc-500">
         {q ? `Matching "${q}" across every shared link.` : "Links shared in the community, crawled and summarized automatically."}
       </p>
-      {rows === undefined ? (
+      {searching ? (
         <p className="text-zinc-500">{q ? "Searching…" : "Loading…"}</p>
       ) : rows.length === 0 ? (
         <p className="text-zinc-500">{q ? `Nothing matches "${q}".` : "Nothing here yet."}</p>
       ) : (
+        <>
+        <p className="text-xs text-zinc-500" aria-live="polite">
+          {rows.length} {q ? "matching links" : "links"} shown{status === "Exhausted" ? "" : " so far"}
+        </p>
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
           {rows.map((r) => {
             const image = broken.has(r.id) ? null : previewImageFor(r);
@@ -106,6 +111,17 @@ export default function Resources() {
             );
           })}
         </ul>
+        {status === "CanLoadMore" || status === "LoadingMore" ? (
+          <button
+            type="button"
+            onClick={() => loadMore(18)}
+            disabled={status === "LoadingMore"}
+            className="mx-auto block rounded-md border border-zinc-700 px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-800 disabled:cursor-wait disabled:opacity-60"
+          >
+            {status === "LoadingMore" ? "Loading more…" : "Load more links"}
+          </button>
+        ) : null}
+        </>
       )}
     </div>
   );

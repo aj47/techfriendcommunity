@@ -35,6 +35,7 @@ import type * as retention from "../retention.js";
 import type * as staticSite from "../staticSite.js";
 import type * as summaries from "../summaries.js";
 import type * as users from "../users.js";
+import type * as vitals from "../vitals.js";
 
 import type {
   ApiFromModules,
@@ -70,6 +71,7 @@ declare const fullApi: ApiFromModules<{
   staticSite: typeof staticSite;
   summaries: typeof summaries;
   users: typeof users;
+  vitals: typeof vitals;
 }>;
 
 /**
