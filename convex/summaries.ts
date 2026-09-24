@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, type MutationCtx } from "./_generated/server";
+import { isPublishableSummary } from "./lib/summaryQuality";
 
 // Daily summaries are written by the Discord bot's summarizer, not here. The
 // bot posts each one into a Discord thread — threads are outside what the
@@ -30,7 +31,7 @@ export async function syncSummaries(ctx: MutationCtx, rows: SummaryRow[]) {
   for (const row of rows ?? []) {
     const date = String(row?.date ?? "");
     const summaryText = String(row?.summaryText ?? "").trim().slice(0, MAX_SUMMARY_LEN);
-    if (!DATE_RE.test(date) || !summaryText) {
+    if (!DATE_RE.test(date) || !isPublishableSummary(summaryText)) {
       skipped++;
       continue;
     }
@@ -94,15 +95,17 @@ export const latest = query({
   handler: async (ctx, { limit }) => {
     const n = Math.min(Math.max(limit ?? 6, 1), 20);
     // Dates are zero-padded YYYY-MM-DD, so string order is date order.
-    const newest = await ctx.db.query("channel_summaries").withIndex("by_date").order("desc").first();
+    const candidates = await ctx.db.query("channel_summaries").withIndex("by_date").order("desc").take(50);
+    const newest = candidates.find((row) => isPublishableSummary(row.summaryText));
     if (!newest) return null;
     const sameDay = await ctx.db
       .query("channel_summaries")
       .withIndex("by_date", (q) => q.eq("date", newest.date))
       .collect();
-    sameDay.sort((a, b) => b.messageCount - a.messageCount);
+    const publishable = sameDay.filter((row) => isPublishableSummary(row.summaryText));
+    publishable.sort((a, b) => b.messageCount - a.messageCount);
     const entries = [];
-    for (const row of sameDay.slice(0, n)) entries.push(await withSlug(ctx, row));
+    for (const row of publishable.slice(0, n)) entries.push(await withSlug(ctx, row));
     return { date: newest.date, entries };
   },
 });
@@ -118,7 +121,7 @@ export const forChannel = query({
       .withIndex("by_channel_date", (q) => q.eq("channelId", channel._id))
       .order("desc")
       .take(Math.min(Math.max(limit ?? 7, 1), 30));
-    return rows.map((r) => ({
+    return rows.filter((r) => isPublishableSummary(r.summaryText)).map((r) => ({
       channelSlug: channel.slug,
       channelName: channel.name,
       date: r.date,
