@@ -347,7 +347,8 @@ function leaderboardBody(d: CardData): string {
   if (!rows.length) {
     return eyebrow("leaderboard") + heading(headLines("No standings yet", 54, 1), 250, 54).svg;
   }
-  const top = Math.max(...rows.map((r) => r.points), 1);
+  // Bars and figures are all-time earned, matching the page's default board.
+  const top = Math.max(...rows.map((r) => r.lifetimePoints), 1);
   const medal = ["#fbbf24", "#d4d4d8", "#c2803a"];
   const barX = M + 78;
   const barW = CONTENT_W - 78 - 190;
@@ -357,7 +358,7 @@ function leaderboardBody(d: CardData): string {
     rows
       .map((r, i) => {
         const y = 316 + i * 78;
-        const w = Math.max(24, Math.round((barW * r.points) / top));
+        const w = Math.max(24, Math.round((barW * r.lifetimePoints) / top));
         return (
           text(`${r.rank}`, { x: M + 14, y, face: "display", size: 34, fill: medal[i] ?? INK.faint }) +
           text(displayName(sanitize(r.name) ? r.name : (r.alias ?? r.name), barW - 20, "semibold", 30), {
@@ -368,7 +369,7 @@ function leaderboardBody(d: CardData): string {
             fill: INK.body,
           }) +
           `<rect x="${barX}" y="${y + 8}" width="${w}" height="6" rx="3" fill="url(#bar)" opacity="0.9"/>` +
-          text(num(r.points), {
+          text(num(r.lifetimePoints), {
             x: CARD_W - M,
             y,
             face: "display",
