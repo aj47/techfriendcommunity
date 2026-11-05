@@ -3,7 +3,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { timeAgo } from "../lib/format";
 import { pageTitle, usePageMeta } from "../lib/head";
-import { hostOf, previewImageFor } from "../lib/linkPreview";
+import { hostOf } from "../lib/linkPreview";
 import SummarizeLink from "../components/SummarizeLink";
 import UpvoteButton from "../components/UpvoteButton";
 
@@ -31,11 +31,7 @@ type SortKey = (typeof SORTS)[number]["key"];
 export default function Resources() {
   const [filter, setFilter] = useState("");
   const [sort, setSort] = useState<SortKey>("hot");
-  // A hotlinked og:image that fails to load falls back to the domain tile
-  // rather than a broken-image glyph: the page moves, the CDN expires the
-  // object, the host refuses a foreign referrer.
-  const [broken, setBroken] = useState<Set<string>>(new Set());
-  usePageMeta(pageTitle("Resources"), "Links the community has shared, crawled, summarized and voted on.");
+  usePageMeta(pageTitle("Resources"), "Links the community has shared, ranked by what the community upvoted.");
 
   // The filter box used to match only the rows already on screen, so anything
   // past the newest 100 links was invisible to it — searching the archive
@@ -99,7 +95,6 @@ export default function Resources() {
       ) : (
         <ul className="space-y-2">
           {rows.map((r, i) => {
-            const image = broken.has(r.id) ? null : previewImageFor(r);
             const host = r.siteName ?? hostOf(r.url);
             return (
               <li
@@ -115,34 +110,6 @@ export default function Resources() {
                 ) : null}
 
                 <UpvoteButton resourceId={r.id} upvotes={r.upvotes} upvoted={voted.has(r.id)} />
-
-                {/* The thumbnail is a fixed block rather than a flexible one:
-                    reddit's row reads as a row because the text column starts
-                    at the same x on every line, image or not. */}
-                <a
-                  href={r.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  tabIndex={-1}
-                  aria-hidden
-                  className="hidden h-16 w-24 shrink-0 overflow-hidden rounded bg-zinc-900 sm:block"
-                >
-                  {image ? (
-                    <img
-                      src={image}
-                      alt=""
-                      loading="lazy"
-                      decoding="async"
-                      referrerPolicy="no-referrer"
-                      onError={() => setBroken((s) => new Set(s).add(r.id))}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-zinc-900 to-zinc-800 px-2 text-center text-[11px] font-medium leading-tight text-zinc-500">
-                      <span className="line-clamp-3 break-all">{host}</span>
-                    </span>
-                  )}
-                </a>
 
                 <div className="min-w-0 flex-1">
                   {/* An untitled row falls back to its raw URL, which on a
@@ -160,9 +127,9 @@ export default function Resources() {
                     {r.upvotes === 1 ? "1 upvote" : `${r.upvotes} upvotes`} · {timeAgo(r.createdAt)}
                   </p>
                   {r.crawlStatus === "pending" ? (
-                    <p className="mt-1 text-sm text-amber-300/80">Crawling…</p>
+                    <p className="mt-1 text-sm text-amber-300/80">Reading…</p>
                   ) : r.crawlStatus === "failed" ? (
-                    <p className="mt-1 text-sm text-zinc-500">Couldn't summarize this page.</p>
+                    <p className="mt-1 text-sm text-zinc-500">Couldn't read this page.</p>
                   ) : r.summary ? (
                     <p className="mt-1 line-clamp-2 break-words text-sm text-zinc-300">{r.summary}</p>
                   ) : null}

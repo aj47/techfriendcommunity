@@ -32,8 +32,6 @@ type Env = {
   readonly CONVEX_SITE_URL: string;
   readonly AGENTMAIL_API_KEY: string;
   readonly AGENTMAIL_WEBHOOK_SECRET: string | undefined;
-  readonly FIRECRAWL_API_KEY: string;
-  readonly FIRECRAWL_WEBHOOK_SECRET: string | undefined;
 };
 
 /**

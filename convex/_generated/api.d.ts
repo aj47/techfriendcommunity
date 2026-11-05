@@ -16,7 +16,7 @@ import type * as discordOut from "../discordOut.js";
 import type * as email from "../email.js";
 import type * as gif from "../gif.js";
 import type * as http from "../http.js";
-import type * as lib_ogImage from "../lib/ogImage.js";
+import type * as lib_pageMeta from "../lib/pageMeta.js";
 import type * as lib_rateLimits from "../lib/rateLimits.js";
 import type * as lib_replyToken from "../lib/replyToken.js";
 import type * as lib_requireUser from "../lib/requireUser.js";
@@ -52,7 +52,7 @@ declare const fullApi: ApiFromModules<{
   email: typeof email;
   gif: typeof gif;
   http: typeof http;
-  "lib/ogImage": typeof lib_ogImage;
+  "lib/pageMeta": typeof lib_pageMeta;
   "lib/rateLimits": typeof lib_rateLimits;
   "lib/replyToken": typeof lib_replyToken;
   "lib/requireUser": typeof lib_requireUser;
@@ -101,7 +101,6 @@ export declare const internal: FilterApi<
 >;
 
 export declare const components: {
-  firecrawl: import("@firecrawl/firecrawl-convex/_generated/component.js").ComponentApi<"firecrawl">;
   agentmail: import("@agentmail/convex/_generated/component.js").ComponentApi<"agentmail">;
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
 };

@@ -65,7 +65,7 @@ const NON_RESOURCE_EXT = /\.(png|jpe?g|gif|webp|bmp|svg|mp4|mov|webm|mp3|wav|ogg
 // a link to a page worth reading, not an image, a clip, or a reaction GIF.
 // Discord uploads any pasted image or clip to its own CDN, and that URL
 // shows up in extractUrls() alongside real links; a raw attachment has no
-// content for Firecrawl to summarize and isn't what "resources" means here.
+// content worth a title and a description, and isn't what "resources" means here.
 export function isCrawlableResource(rawUrl: string): boolean {
   try {
     const u = new URL(rawUrl);

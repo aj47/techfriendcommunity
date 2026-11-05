@@ -28,7 +28,7 @@ export default function RecapPanel() {
         {empty ? (
           <p className="px-1 text-sm text-zinc-600">
             Nothing to recap yet — the bot writes a summary once a day has some traffic, and shared links show up here
-            after they're crawled.
+            once they've been read.
           </p>
         ) : null}
         <DailySummary />

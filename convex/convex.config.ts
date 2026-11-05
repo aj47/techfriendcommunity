@@ -1,6 +1,5 @@
 import { defineApp } from "convex/server";
 import { v } from "convex/values";
-import firecrawl from "@firecrawl/firecrawl-convex/convex.config";
 import agentmail from "@agentmail/convex/convex.config";
 import rateLimiter from "@convex-dev/rate-limiter/convex.config";
 
@@ -9,21 +8,11 @@ import rateLimiter from "@convex-dev/rate-limiter/convex.config";
 // the component and handed over explicitly below.
 const app = defineApp({
   env: {
-    FIRECRAWL_API_KEY: v.string(),
-    FIRECRAWL_WEBHOOK_SECRET: v.optional(v.string()),
     AGENTMAIL_API_KEY: v.string(),
     AGENTMAIL_WEBHOOK_SECRET: v.optional(v.string()),
   },
 });
 
-app.use(firecrawl, {
-  // Mounts the crawl webhook route at <site>/firecrawl/webhook.
-  httpPrefix: "/firecrawl/",
-  env: {
-    FIRECRAWL_API_KEY: app.env.FIRECRAWL_API_KEY,
-    FIRECRAWL_WEBHOOK_SECRET: app.env.FIRECRAWL_WEBHOOK_SECRET,
-  },
-});
 // @agentmail/convex@0.1.0 ships `defineComponent("agentmail")` with no env
 // declaration, while its own code reads process.env.AGENTMAIL_API_KEY from
 // inside the component. Since components can't see the app's env vars, the key

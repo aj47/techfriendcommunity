@@ -3,12 +3,12 @@ import { useConvexAuth, useMutation } from "convex/react";
 import { ConvexError } from "convex/values";
 import { api } from "../../convex/_generated/api";
 
-// Ask for a page to be crawled and summarized into Resources.
+// Add a page to Resources by hand.
 //
 // The backend mutation has always existed; until now the only thing that could
 // call it was an agent tool, so the one person who could add a link by hand was
 // the one who wasn't there. The list this feeds is a reactive query, so a new
-// row shows up on its own the moment the crawl is queued — there is nothing to
+// row shows up on its own the moment the fetch is queued — there is nothing to
 // poll and no success state to invent beyond clearing the box.
 export default function SummarizeLink({ onAdded }: { onAdded?: () => void }) {
   const { isAuthenticated } = useConvexAuth();
@@ -30,7 +30,7 @@ export default function SummarizeLink({ onAdded }: { onAdded?: () => void }) {
       const { status } = await requestSummary({ url: raw });
       setUrl("");
       // "done" means someone had already shared it and it is in the list below.
-      setNote(status === "done" ? "Already in Resources." : "Crawling — it'll appear below.");
+      setNote(status === "done" ? "Already in Resources." : "Added — it'll appear below.");
       onAdded?.();
     } catch (e) {
       setError(
@@ -58,8 +58,8 @@ export default function SummarizeLink({ onAdded }: { onAdded?: () => void }) {
           }}
           type="url"
           inputMode="url"
-          placeholder="Paste a link to summarize…"
-          aria-label="Paste a link to crawl and summarize"
+          placeholder="Paste a link to add…"
+          aria-label="Paste a link to add to Resources"
           className="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-base outline-none focus:border-zinc-600 sm:py-1.5 sm:text-sm"
         />
         <button
@@ -67,7 +67,7 @@ export default function SummarizeLink({ onAdded }: { onAdded?: () => void }) {
           disabled={!url.trim() || busy}
           className="shrink-0 rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-40 sm:py-1.5"
         >
-          {busy ? "Adding…" : "Summarize"}
+          {busy ? "Adding…" : "Add link"}
         </button>
       </div>
       {error ? <p className="mt-1 text-xs text-red-400">{error}</p> : null}

@@ -9,8 +9,8 @@ Join the techfren Discord community from your browser or inbox — no Discord ac
 ## Stack
 
 - [Convex](https://convex.dev) — database, reactive queries, auth, crons, HTTP actions
-- [`@firecrawl/firecrawl-convex`](https://github.com/firecrawl/firecrawl-convex) — links shared in chat are crawled and summarized into a community resources page
 - [`@agentmail/convex`](https://github.com/agentmail-to/convex) — the app's email inbox: channel digests out, replies in
+- Links shared in chat become a votable community resources page, titled and described from each page's own `<head>` (`convex/lib/pageMeta.ts`). This used to be a Firecrawl crawl with an LLM summary and topic tags; it was removed when the credits ran out, because an unpaid crawl leaves rows with no title at all.
 - React + Vite + TypeScript + Tailwind
 
 ## Discord side
@@ -77,7 +77,6 @@ node scripts/gen-og-runtime.mjs
 1. **Convex**: `npx convex login`, then `npx convex dev --once --configure new` to create the project. Static hosting: `npx convex deploy`.
 2. **Backend env** (`npx convex env set NAME value`):
    - `BRIDGE_SECRET` — long random string; the Discord bot bridge sends it as a bearer token.
-   - `FIRECRAWL_API_KEY` (+ optional `FIRECRAWL_WEBHOOK_SECRET`) — link enrichment.
    - `AGENTMAIL_API_KEY`, `AGENTMAIL_WEBHOOK_SECRET`, `AGENTMAIL_INBOX_ID` — create an inbox in AgentMail, register the webhook at `https://<deployment>.convex.site/agentmail/webhook` (`/mailhook` is served as an alias for the same handler). Use the secret AgentMail returns **when the webhook is created** — registering a webhook mints a new one, and Svix verification fails against any older value.
      Note that Convex components cannot read the app's env vars: each must be declared by the component and passed through in `convex/convex.config.ts`. `@agentmail/convex@0.1.0` declares none, so `scripts/patch-agentmail-env.mjs` (run from `postinstall`) adds the declaration. Without it every send fails inside the component's send pool *after* the calling mutation has already returned success.
    - `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` — GitHub OAuth app with callback `https://<deployment>.convex.site/api/auth/callback/github`.

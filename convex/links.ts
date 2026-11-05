@@ -1,14 +1,11 @@
 import { v, ConvexError } from "convex/values";
-import { FirecrawlClient } from "@firecrawl/firecrawl-convex";
 import { internalAction, internalMutation, internalQuery, mutation, query, type MutationCtx } from "./_generated/server";
-import { components, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { isCrawlableResource, normalizeUrl } from "./lib/urls";
-import { fetchOgImage, safeImageUrl } from "./lib/ogImage";
+import { fetchPageMeta } from "./lib/pageMeta";
 import { optionalUser, requireUser } from "./lib/requireUser";
 import { rateLimiter } from "./lib/rateLimits";
-
-const firecrawl = new FirecrawlClient(components.firecrawl);
 
 // One field for the search index to cover. Searching only `summary` missed
 // every link whose topic lives in its title, its tags, or its domain — which is
@@ -44,12 +41,12 @@ export function hotRankOf(upvotes: number, createdAt: number): number {
 
 function view(r: {
   _id: Id<"link_resources">; url: string; title?: string; summary?: string; siteName?: string;
-  imageUrl?: string; tags: string[]; crawlStatus: "pending" | "done" | "failed"; createdAt: number;
+  tags: string[]; crawlStatus: "pending" | "done" | "failed"; createdAt: number;
   channelId?: Id<"channels">; upvotes?: number;
 }) {
   return {
     id: r._id, url: r.url, title: r.title ?? null, summary: r.summary ?? null,
-    siteName: r.siteName ?? null, imageUrl: r.imageUrl ?? null, tags: r.tags,
+    siteName: r.siteName ?? null, tags: r.tags,
     crawlStatus: r.crawlStatus, createdAt: r.createdAt,
     // A row the vote backfill hasn't reached reads as zero rather than as a
     // hole the UI has to special-case.
@@ -57,9 +54,6 @@ function view(r: {
   };
 }
 
-// og:image, without spending a Firecrawl credit. Firecrawl returns one in its
-// metadata for most pages; this is the fallback for the ones it doesn't, and
-// the whole story for rows crawled before images were stored at all.
 // Record URLs shared in a message as pending resources and schedule enrichment.
 export async function enqueueLinks(
   ctx: MutationCtx,
@@ -166,8 +160,8 @@ export const search = query({
   },
 });
 
-// Signed-in users can ask for a page to be summarized on demand. Rate-limited
-// because each call spends Firecrawl credits.
+// Signed-in users can add a page by hand. Rate-limited because each call makes
+// this deployment fetch a URL someone else chose.
 export const requestSummary = mutation({
   args: { url: v.string() },
   handler: async (ctx, { url: raw }) => {
@@ -214,19 +208,18 @@ export const finish = internalMutation({
     title: v.optional(v.string()),
     summary: v.optional(v.string()),
     siteName: v.optional(v.string()),
-    imageUrl: v.optional(v.string()),
-    tags: v.array(v.string()),
   },
-  handler: async (ctx, { resourceId, title, summary, siteName, imageUrl, tags }) => {
+  handler: async (ctx, { resourceId, title, summary, siteName }) => {
     const r = await ctx.db.get(resourceId);
     if (!r) return;
+    // Tags came from the crawl's LLM pass and nothing writes them now. The
+    // rows that have them keep them, including in their search text.
     const next = {
       title: title?.slice(0, 200), summary: summary?.slice(0, 1500), siteName: siteName?.slice(0, 100),
-      tags: tags.slice(0, 6).map((t) => t.toLowerCase().slice(0, 30)),
+      tags: r.tags,
     };
     await ctx.db.patch(resourceId, {
-      ...next, imageUrl: safeImageUrl(imageUrl), crawlStatus: "done", failReason: undefined,
-      // searchText deliberately ignores imageUrl: nobody searches for a CDN path.
+      ...next, crawlStatus: "done", failReason: undefined,
       searchText: searchTextFor({ url: r.url, ...next }),
     });
   },
@@ -291,56 +284,6 @@ export const backfillVoteCounts = internalMutation({
   },
 });
 
-// One-shot backfill for rows crawled before imageUrl existed: reads each page's
-// <head> directly rather than re-crawling, so it costs no Firecrawl credits.
-// imageAttemptedAt is stamped on every row it touches, so a page that simply
-// has no og:image is not retried by the next run.
-export const backfillImages = internalAction({
-  args: { at: v.optional(v.string()), found: v.optional(v.number()), seen: v.optional(v.number()) },
-  // Annotated because the handler schedules itself: without an explicit return
-  // type its own type is part of its own inference and TypeScript gives up.
-  handler: async (
-    ctx,
-    { at, found = 0, seen = 0 },
-  ): Promise<{ seen: number; found: number; done: boolean }> => {
-    const page = await ctx.runQuery(internal.links.pageWithoutImage, { at });
-    let f = found;
-    for (const row of page.rows) {
-      const imageUrl = await fetchOgImage(row.url);
-      if (imageUrl) f++;
-      await ctx.runMutation(internal.links.setImage, { resourceId: row.id, imageUrl });
-    }
-    const n = seen + page.rows.length;
-    if (page.isDone) {
-      console.log("links: image backfill complete", { seen: n, found: f });
-      return { seen: n, found: f, done: true };
-    }
-    await ctx.scheduler.runAfter(0, internal.links.backfillImages, { at: page.next, found: f, seen: n });
-    return { seen: n, found: f, done: false };
-  },
-});
-
-export const pageWithoutImage = internalQuery({
-  args: { at: v.optional(v.string()) },
-  handler: async (ctx, { at }) => {
-    // 25 a time: each row costs one outbound fetch, and an action that tries to
-    // pull hundreds of pages before returning is an action that times out.
-    const page = await ctx.db.query("link_resources").paginate({ cursor: at ?? null, numItems: 25 });
-    return {
-      rows: page.page.filter((r) => !r.imageUrl && !r.imageAttemptedAt).map((r) => ({ id: r._id, url: r.url })),
-      next: page.continueCursor,
-      isDone: page.isDone,
-    };
-  },
-});
-
-export const setImage = internalMutation({
-  args: { resourceId: v.id("link_resources"), imageUrl: v.optional(v.string()) },
-  handler: async (ctx, { resourceId, imageUrl }) => {
-    await ctx.db.patch(resourceId, { imageUrl: safeImageUrl(imageUrl), imageAttemptedAt: Date.now() });
-  },
-});
-
 // Deletes rows that today's rules would never have stored: reaction GIFs and
 // raw attachments, which were only ever filtered at ingest, so anything shared
 // before a host joined the list is still sitting in the table. Chains a page at
@@ -383,54 +326,30 @@ export const fail = internalMutation({
   },
 });
 
-// Firecrawl does the real work: scrape the page and extract a structured summary.
+// Read the page's own <head> for a title and description. One request, no
+// credits — see lib/pageMeta for why this replaced the crawl.
 export const enrich = internalAction({
   args: { resourceId: v.id("link_resources") },
   handler: async (ctx, { resourceId }) => {
     const r = await ctx.runQuery(internal.links.get, { resourceId });
     if (!r || r.crawlStatus !== "pending") return;
-    try {
-      const doc = await firecrawl.scrape(ctx, r.url, {
-        formats: [
-          "markdown",
-          {
-            type: "json",
-            prompt: "Summarize this page for a developer community. Return JSON with: title (short), summary (one paragraph, 2-4 sentences), siteName, tags (3-5 short lowercase topic tags).",
-            schema: {
-              type: "object",
-              properties: {
-                title: { type: "string" },
-                summary: { type: "string" },
-                siteName: { type: "string" },
-                tags: { type: "array", items: { type: "string" } },
-              },
-              required: ["title", "summary"],
-            },
-          },
-        ],
-        onlyMainContent: true,
-        maxAge: 3_600_000,
-      });
-      const json = (doc.json ?? {}) as { title?: string; summary?: string; siteName?: string; tags?: string[] };
-      const meta = (doc.metadata ?? {}) as {
-        title?: string; description?: string; ogSiteName?: string; siteName?: string;
-        ogImage?: string; "og:image"?: string; image?: string;
-      };
-      const summary = json.summary ?? meta.description ?? doc.markdown?.replace(/\s+/g, " ").slice(0, 400);
-      const scraped = safeImageUrl(meta.ogImage ?? meta["og:image"] ?? meta.image, r.url);
-      await ctx.runMutation(internal.links.finish, {
-        resourceId,
-        title: json.title ?? meta.title,
-        summary,
-        imageUrl: scraped ?? (await fetchOgImage(r.url)),
-        siteName: json.siteName ?? meta.ogSiteName ?? meta.siteName ?? new URL(r.url).hostname,
-        tags: Array.isArray(json.tags) ? json.tags.filter((t) => typeof t === "string") : [],
-      });
-    } catch (e) {
-      const status = (e as { data?: { status?: number; message?: string } })?.data?.status;
-      const reason = status === 402 ? "Firecrawl credits exhausted" : status === 429 ? "Firecrawl rate limited" : status ? `Firecrawl ${status}` : (e as Error)?.message ?? "crawl failed";
-      console.warn("enrich failed", r.url, reason);
-      await ctx.runMutation(internal.links.fail, { resourceId, reason });
+    const meta = await fetchPageMeta(r.url);
+    if (!meta) {
+      await ctx.runMutation(internal.links.fail, { resourceId, reason: "couldn't read that page" });
+      return;
     }
+    // A page with neither a title nor a description told us nothing, and a row
+    // showing its bare URL forever is worse than one marked as unread — the
+    // retry path (requestSummary on a failed row) can pick it up later.
+    if (!meta.title && !meta.description) {
+      await ctx.runMutation(internal.links.fail, { resourceId, reason: "no title or description" });
+      return;
+    }
+    await ctx.runMutation(internal.links.finish, {
+      resourceId,
+      title: meta.title,
+      summary: meta.description,
+      siteName: meta.siteName,
+    });
   },
 });

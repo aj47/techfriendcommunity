@@ -1,5 +1,5 @@
 import { httpAction } from "./_generated/server";
-import { fetchOgImage } from "./lib/ogImage";
+import { fetchOgImage } from "./lib/pageMeta";
 import { isGifHost } from "./lib/urls";
 
 // A Tenor link is a page, not an image. "tenor.com/bf62P.gif" looks like one —
