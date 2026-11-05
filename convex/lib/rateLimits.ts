@@ -4,6 +4,10 @@ import { components } from "../_generated/api";
 export const rateLimiter = new RateLimiter(components.rateLimiter, {
   postMessage: { kind: "token bucket", rate: 5, period: MINUTE, capacity: 5 },
   summarizeLink: { kind: "fixed window", rate: 3, period: MINUTE },
+  // Voting is a click, and reading a page of links means a burst of them. High
+  // enough that nobody hits it by using the page; low enough that a script
+  // can't walk the archive toggling every row.
+  voteLink: { kind: "token bucket", rate: 30, period: MINUTE, capacity: 30 },
   emailReply: { kind: "fixed window", rate: 10, period: MINUTE },
   // Mirrors the Discord bot's GIF_LIMIT_PER_WINDOW=1 over GIF_TIME_WINDOW=5min
   // (gif_limiter.py). The bot polices GIFs per member, but it never sees a

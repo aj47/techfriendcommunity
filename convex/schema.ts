@@ -183,13 +183,39 @@ export default defineSchema({
     ),
     failReason: v.optional(v.string()),
     createdAt: v.number(),
+    // Denormalized vote count. The votes themselves are rows in link_votes;
+    // this is what the list sorts and renders, so a page of 100 links costs one
+    // index read instead of 100 counting scans. Optional because rows written
+    // before voting existed must still validate — links.backfillVoteCounts
+    // stamps 0 on them, and every new row is inserted with it set.
+    upvotes: v.optional(v.number()),
+    // Reddit's hot score: log10(max(upvotes, 1)) plus age in 45000-second
+    // units. A function of upvotes and createdAt only, so it can be stored and
+    // indexed — recomputed on each vote, never on read. Ranking by it in a
+    // query instead would mean reading the whole table on every page load.
+    hotRank: v.optional(v.number()),
   })
     .index("by_url", ["url"])
     .index("by_createdAt", ["createdAt"])
+    .index("by_upvotes", ["upvotes"])
+    .index("by_hotRank", ["hotRank"])
     .searchIndex("search_text", {
       searchField: "searchText",
       filterFields: ["crawlStatus"],
     }),
+
+  // One row per (link, member): its existence *is* the upvote, so a double
+  // click can't count twice and un-voting is a delete. by_resource_user is the
+  // uniqueness check on write; by_user is how the client learns which of the
+  // links on screen it has already voted for, in one query rather than one per
+  // row.
+  link_votes: defineTable({
+    resourceId: v.id("link_resources"),
+    userId: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_resource_user", ["resourceId", "userId"])
+    .index("by_user", ["userId"]),
 
   digest_subscriptions: defineTable({
     userId: v.id("users"),
