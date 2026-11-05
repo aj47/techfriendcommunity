@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
@@ -16,7 +16,8 @@ import { linkify, mediaOf, type Media } from "../lib/linkify";
 // It fills its grid column and scrolls inside itself, so it matches the height
 // of the cards beside it however tall those get, and asks for enough rows to
 // have something left to scroll on a tall screen.
-const PREVIEW = 20;
+const MOBILE_PREVIEW = 8;
+const DESKTOP_PREVIEW = 20;
 
 type FeedItem = FunctionReturnType<typeof api.messages.latestAcross>[number];
 
@@ -33,7 +34,7 @@ function Row({ m }: { m: FeedItem }) {
   // Drop it when it fails and let the row fall back to describing itself.
   const [broken, setBroken] = useState<string[]>([]);
   const { media, rest } = mediaOf(m.content);
-  // Images only. Twenty rows of <video preload="metadata"> is a lot of network
+  // Images only. A feed of <video preload="metadata"> is a lot of network
   // for a sidebar, and a controlless still frame is a black box anyway — a
   // video keeps its label and stays one click from the channel that has it.
   const shown = media.filter((x) => x.kind === "image" && !broken.includes(x.url));
@@ -52,7 +53,7 @@ function Row({ m }: { m: FeedItem }) {
         className="flex gap-2 px-4 py-2 hover:bg-zinc-900"
       >
         {m.author.avatarUrl ? (
-          <img src={m.author.avatarUrl} alt="" className="mt-0.5 h-5 w-5 shrink-0 rounded-full" />
+          <img src={m.author.avatarUrl} alt="" loading="lazy" decoding="async" className="mt-0.5 h-5 w-5 shrink-0 rounded-full" />
         ) : (
           <div className="mt-0.5 h-5 w-5 shrink-0 rounded-full bg-zinc-700" />
         )}
@@ -105,10 +106,17 @@ function Row({ m }: { m: FeedItem }) {
 }
 
 export default function LatestPreview() {
-  const feed = useQuery(api.messages.latestAcross, { limit: PREVIEW });
+  const [compact, setCompact] = useState(() => window.matchMedia("(max-width: 1023px)").matches);
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 1023px)");
+    const update = () => setCompact(media.matches);
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  const feed = useQuery(api.messages.latestAcross, { limit: compact ? MOBILE_PREVIEW : DESKTOP_PREVIEW });
 
   return (
-    <section className="flex h-full min-h-[18rem] flex-col overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/40">
+    <section className="flex h-[22rem] min-w-0 flex-col overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/40 lg:h-full lg:min-h-[18rem]">
       <div className="flex shrink-0 items-baseline justify-between gap-3 border-b border-zinc-800 px-4 py-2.5">
         <h2 className="text-sm font-semibold text-zinc-300">Latest messages</h2>
         <Link to="/channels" className="text-xs text-emerald-400 hover:underline">

@@ -1,17 +1,21 @@
+import { lazy, Suspense } from "react";
 import { Route, Routes, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
-import ChatShell from "./components/ChatShell";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Home from "./routes/Home";
-import LiveChat from "./routes/LiveChat";
-import Channel from "./routes/Channel";
-import Leaderboard from "./routes/Leaderboard";
 import NotFound from "./routes/NotFound";
-import Resources from "./routes/Resources";
-import Search from "./routes/Search";
-import Settings from "./routes/Settings";
-import SignIn from "./routes/SignIn";
 import { isChatShellRoute } from "./lib/appShell";
+
+// The home page is the common entry point. Load the chat shell and the other
+// screens only when someone visits them, keeping their code off the first load.
+const ChatShell = lazy(() => import("./components/ChatShell"));
+const LiveChat = lazy(() => import("./routes/LiveChat"));
+const Channel = lazy(() => import("./routes/Channel"));
+const Leaderboard = lazy(() => import("./routes/Leaderboard"));
+const Resources = lazy(() => import("./routes/Resources"));
+const Search = lazy(() => import("./routes/Search"));
+const Settings = lazy(() => import("./routes/Settings"));
+const SignIn = lazy(() => import("./routes/SignIn"));
 
 export default function App() {
   const location = useLocation();
@@ -40,7 +44,9 @@ export default function App() {
   // keeps it mounted and only the middle pane changes.
   return (
     <Layout>
-      {isChatShellRoute(location.pathname) ? <ChatShell>{pages}</ChatShell> : pages}
+      <Suspense fallback={<p className="px-4 py-6 text-sm text-zinc-500">Loading…</p>}>
+        {isChatShellRoute(location.pathname) ? <ChatShell>{pages}</ChatShell> : pages}
+      </Suspense>
     </Layout>
   );
 }
