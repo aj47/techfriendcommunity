@@ -1,12 +1,11 @@
 import DailySummary from "../components/DailySummary";
-import AlphaCards from "../components/AlphaCards";
 import LatestPreview from "../components/LatestPreview";
 import { HOME_TITLE, usePageMeta } from "../lib/head";
 
 // The landing page is a document, not the chat shell. It opens straight into
-// the content: yesterday's highlights folded into a banner, then what the
-// community found as preview cards in the wide column, with the conversation
-// running full-height alongside and the real thing a click away at /channels.
+// the content: the latest highlights as the wide column's main card, with the
+// conversation running full-height alongside and the real thing a click away at
+// /channels. The link archive is not duplicated here — it lives at /resources.
 //
 // The heading is present but not painted. It is the page's name for crawlers
 // and for anyone arriving by screen reader — both of which read an <h1> as the
@@ -19,15 +18,15 @@ export default function Home() {
     <div className="space-y-4">
       <h1 className="sr-only">AI news, links and live chat from the techfren community</h1>
 
-      <DailySummary variant="banner" />
-
-      {/* No items-start: the row stretches, so the conversation column runs to
-          the same height as the cards beside it and scrolls inside itself. */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <AlphaCards />
+      {/* On phones, show a short window into the live conversation before the
+          highlights. At desktop widths both columns stretch together. */}
+      <div className="grid min-w-0 gap-4 lg:grid-cols-3">
+        <div className="order-1 min-w-0 lg:order-2">
+          <LatestPreview />
         </div>
-        <LatestPreview />
+        <div className="order-2 min-w-0 lg:order-1 lg:col-span-2">
+          <DailySummary startExpanded />
+        </div>
       </div>
     </div>
   );

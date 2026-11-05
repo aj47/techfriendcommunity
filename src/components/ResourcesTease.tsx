@@ -6,10 +6,9 @@ import { timeAgo } from "../lib/format";
 import { hostOf } from "../lib/linkPreview";
 
 // A glance at what the community has been reading, for the chat shell's narrow
-// recap pane. The full archive with search lives at /resources, and the landing
-// page shows the same rows as preview cards (src/components/AlphaCards.tsx);
-// this is the tease: three rows folded, the rest one click away, and no
-// summaries until it is open so the fold stays short in a 320px column.
+// recap pane. The full archive with search lives at /resources; this is the
+// tease: three rows folded, the rest one click away, and no summaries until it
+// is open so the fold stays short in a 320px column.
 const TEASE = 3;
 const LIMIT = 9;
 
