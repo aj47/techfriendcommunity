@@ -47,6 +47,7 @@ http.route({ path: "/icon-512.png", method: "GET", handler: serveStatic });
 http.route({ path: "/icon-maskable-512.png", method: "GET", handler: serveStatic });
 http.route({ path: "/site.webmanifest", method: "GET", handler: serveStatic });
 http.route({ path: "/og.png", method: "GET", handler: serveStatic });
+http.route({ path: "/hero.webp", method: "GET", handler: serveStatic });
 // Resolves a GIF-host page to the media it shows (convex/gif.ts). Registered
 // with the API routes rather than the static ones: it answers with a redirect,
 // not a file.

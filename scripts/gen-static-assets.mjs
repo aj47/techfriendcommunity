@@ -14,6 +14,9 @@ const TYPES = {
   ".svg": "image/svg+xml",
   ".json": "application/json; charset=utf-8",
   ".png": "image/png",
+  ".webp": "image/webp",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
   ".ico": "image/x-icon",
   ".txt": "text/plain; charset=utf-8",
   // Browsers reject a manifest served as anything else, and the fallback below
