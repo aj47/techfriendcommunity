@@ -1,10 +1,10 @@
 // The dynamic link-preview cards, as SVG. convex/og/render.ts rasterizes what
 // this returns; nothing here touches the database or the renderer.
 //
-// The frame is deliberately the same as the static card in assets/brand/og.svg
-// — zinc-950 ground, the violet bolt bled off the right edge, the wordmark in
-// Inter Display — so a shared channel and a shared home page still read as the
-// same site. What changes is the body: the recap, the newest messages, the
+// The frame is the app's own palette — zinc-950 ground, the "t_" mark bled
+// off the right edge, the wordmark in Inter Display — so a shared channel reads
+// as the same site as the home page, whose card is the static cover-art one in
+// assets/brand/og.svg. What changes is the body: the newest messages, the
 // standings, whatever the route is actually about.
 import type { CardData, CardMessage } from "./data";
 import {
@@ -39,7 +39,6 @@ const INK = {
   ghost: "#52525b",
   line: "#27272a",
   accent: "#34d399",
-  violet: "#8B3CFF",
 };
 
 // Muted discs behind author initials, picked by name so one person keeps one
@@ -98,12 +97,25 @@ function disc(cx: number, cy: number, r: number, name: string): string {
   );
 }
 
-// The bolt from the mark, as a path at 1x (48x45 units).
-const BOLT =
-  "M25.946 44.938c-.664.845-2.021.375-2.021-.698V33.937a2.26 2.26 0 0 0-2.262-2.262H10.287c-.92 0-1.456-1.04-.92-1.788l7.48-10.471c1.07-1.497 0-3.578-1.842-3.578H1.237c-.92 0-1.456-1.04-.92-1.788L10.013.474c.214-.297.556-.474.92-.474h28.894c.92 0 1.456 1.04.92 1.788l-7.48 10.471c-1.07 1.498 0 3.579 1.842 3.579h11.377c.943 0 1.473 1.088.89 1.83L25.947 44.94z";
+// The mark from assets/brand/mark.svg: a pixel "t" and the cursor after it,
+// as runs of [x, y, width] one cell tall on a 14x7 grid.
+const MARK_RUNS: [number, number, number][] = [
+  [1, 0, 2],
+  [1, 1, 2],
+  [0, 2, 6],
+  [1, 3, 2],
+  [1, 4, 2],
+  [1, 5, 2],
+  [5, 5, 1],
+  [2, 6, 4],
+  [8, 6, 6],
+];
 
-function bolt(x: number, y: number, scale: number, fill = "url(#bolt)", opacity = 1): string {
-  return `<path transform="translate(${x} ${y}) scale(${scale})" fill="${fill}" opacity="${opacity}" d="${BOLT}"/>`;
+function mark(x: number, y: number, cell: number, opacity = 1): string {
+  const rects = MARK_RUNS.map(
+    ([cx, cy, w]) => `<rect x="${x + cx * cell}" y="${y + cy * cell}" width="${w * cell}" height="${cell}"/>`,
+  ).join("");
+  return `<g fill="${INK.accent}" opacity="${opacity}" shape-rendering="crispEdges">${rects}</g>`;
 }
 
 /**
@@ -112,7 +124,8 @@ function bolt(x: number, y: number, scale: number, fill = "url(#bolt)", opacity 
  * everything twice.
  */
 function header(right: string): string {
-  const mark = bolt(M, 40, 0.82);
+  // Seven cells tall, standing on the wordmark's baseline.
+  const glyph = mark(M, 53, 3);
   const wordX = M + 52;
   const word =
     text("techfriend", { x: wordX, y: 74, face: "display", size: 30, fill: INK.bright, tracking: -0.6 }) +
@@ -128,7 +141,7 @@ function header(right: string): string {
   const stamp = right
     ? text(right, { x: CARD_W - M, y: 72, face: "medium", size: 22, fill: INK.ghost, anchor: "end" })
     : "";
-  return mark + word + stamp + rule(104);
+  return glyph + word + stamp + rule(104);
 }
 
 /** Footer: the domain on the left, a freshness or stat line on the right. */
@@ -475,21 +488,18 @@ export function cardSvg(d: CardData, now: number): string {
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${CARD_W}" height="${CARD_H}" viewBox="0 0 ${CARD_W} ${CARD_H}">
 <defs>
-<linearGradient id="bolt" x1="0.05" y1="0" x2="0.85" y2="1">
-<stop offset="0" stop-color="#8B3CFF"/><stop offset="0.45" stop-color="#9A56FF"/><stop offset="1" stop-color="#6D7DFF"/>
-</linearGradient>
 <linearGradient id="bar" x1="0" y1="0" x2="1" y2="0">
-<stop offset="0" stop-color="#34d399"/><stop offset="1" stop-color="#8B3CFF"/>
+<stop offset="0" stop-color="#34d399"/><stop offset="1" stop-color="#86efac"/>
 </linearGradient>
 <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
-<stop offset="0" stop-color="#8B3CFF" stop-opacity="0.22"/><stop offset="1" stop-color="#8B3CFF" stop-opacity="0"/>
+<stop offset="0" stop-color="#10b981" stop-opacity="0.16"/><stop offset="1" stop-color="#10b981" stop-opacity="0"/>
 </radialGradient>
 </defs>
 <rect width="${CARD_W}" height="${CARD_H}" fill="${INK.bg}"/>
-<!-- Glow and the oversized bolt bled off the right edge, as on the static card
-     in assets/brand/og.svg — but dimmer, because here there is text over it. -->
+<!-- Glow and the oversized mark bled off the right edge, both dim because
+     there is text over them. -->
 <ellipse cx="965" cy="300" rx="470" ry="400" fill="url(#glow)"/>
-${bolt(806, -80, 16.7, "url(#bolt)", 0.07)}
+${mark(742, 130, 44, 0.05)}
 ${header(stamp(d, now))}
 ${body}
 ${footer(rightFoot(d, now))}

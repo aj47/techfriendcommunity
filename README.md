@@ -48,14 +48,15 @@ sudo apt-get install -y librsvg2-bin imagemagick pngquant optipng fonts-inter
 
 ### Link-preview cards
 
-`/og/<card>.png` draws a route's link-preview card from live content — the
-day's recap on `/`, the newest messages on `/channels`, the standings on
-`/leaderboard`, the query on `/search` — with resvg compiled to WebAssembly,
-inside the Convex deployment (`convex/og/`). `convex/staticSite.ts` points each
-route's `og:image` at its own card and stamps a `?v=` taken from the newest
-thing that card shows: unfurlers cache by URL, so without the stamp Discord and
-Twitter would keep serving the first card they ever fetched. A render that
-throws redirects to the static `public/og.png`.
+The home page unfurls as the static `public/og.png`: the landing page's cover
+art over the wordmark. Every other route gets its own card from
+`/og/<card>.png`, drawn from live content — the newest messages on
+`/channels`, the standings on `/leaderboard`, the query on `/search` — with
+resvg compiled to WebAssembly, inside the Convex deployment (`convex/og/`).
+`convex/staticSite.ts` points each route's `og:image` at its card and stamps a
+`?v=` taken from the newest thing that card shows: unfurlers cache by URL, so
+without the stamp Discord and Twitter would keep serving the first card they
+ever fetched. A render that throws redirects to the static `public/og.png`.
 
 ```bash
 npx tsx scripts/preview-og.ts og-preview   # render every card from sample data

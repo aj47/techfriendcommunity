@@ -55,9 +55,13 @@ png "$SRC/tile.svg"          192 "$OUT/icon-192.png"
 png "$SRC/tile.svg"          512 "$OUT/icon-512.png"
 png "$SRC/tile-maskable.svg" 512 "$OUT/icon-maskable-512.png"
 
-# The card is the one non-square output.
+# The card is the one non-square output. Its top two thirds are the cover art
+# (assets/brand/cover.jpg, which is public/hero.webp at 1200x400), and that
+# much pixel art cannot meet the 85 floor the icons use in 256 colours: pngquant
+# gives up and the card ships at ~1 MB, over the ~600 KB WhatsApp will unfurl.
+# A floor of 50 lands near 330 KB with no banding visible at 1x or 2x.
 rsvg-convert -w 1200 -h 630 "$SRC/og.svg" -o "$TMP/og-raw.png"
-pngquant --quality 85-100 --speed 1 --force --output "$TMP/og-q.png" "$TMP/og-raw.png" 2>/dev/null \
+pngquant --quality 50-90 --speed 1 --force --output "$TMP/og-q.png" "$TMP/og-raw.png" 2>/dev/null \
   || cp "$TMP/og-raw.png" "$TMP/og-q.png"
 optipng -quiet -o2 -out "$TMP/og-final.png" "$TMP/og-q.png"
 mv -f "$TMP/og-final.png" "$OUT/og.png"
