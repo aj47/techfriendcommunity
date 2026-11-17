@@ -84,11 +84,20 @@ function inject(source: string, meta: PageMeta): string {
   return source;
 }
 
-// The path of this route's link-preview card. The version stamp costs one
-// indexed read per page render; if that read fails the page still unfurls, just
-// with the static card in public/og.png.
+// The static card in public/og.png: the cover art over the wordmark. Unfurlers
+// cache by URL, so bump this — and the ?v= on the icons in index.html — whenever
+// scripts/gen-brand.sh rewrites that file.
+const BRAND_CARD = "/og.png?v=3";
+
+// The path of this route's link-preview card. The home page, and any path that
+// has no card of its own, is introduced by the cover art: that is the link
+// people share to say what this site is, and a recap headline doesn't say it.
+// Every other route gets its card drawn from live content, and its version
+// stamp costs one indexed read per page render; if that read fails the page
+// still unfurls, just with the static card.
 async function cardUrl(ctx: ActionCtx, url: URL): Promise<string> {
   const route = cardRouteFor(url);
+  if (route.kind === "home" || route.kind === "site") return BRAND_CARD;
   try {
     const version = await ctx.runQuery(internal.og.data.version, {
       kind: route.kind,
@@ -97,7 +106,7 @@ async function cardUrl(ctx: ActionCtx, url: URL): Promise<string> {
     return cardPath(route, version);
   } catch (e) {
     console.warn("staticSite: card version lookup failed", e);
-    return "/og.png";
+    return BRAND_CARD;
   }
 }
 
@@ -120,7 +129,7 @@ async function metaFor(ctx: ActionCtx, url: URL): Promise<PageMeta> {
       description: DEFAULT_DESCRIPTION,
       url: href,
       image,
-      alt: "The techfren community's latest daily recap and newest messages.",
+      alt: "Pixel art of the techfren community on a rooftop at night, every member on a laptop, beside a sign reading techfren_: 3,500+ builders shipping with AI.",
     };
   }
   if (path === "/channels")
