@@ -4,6 +4,7 @@ import { useConvexAuth, useQuery } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "../../convex/_generated/api";
 import { isChatShellRoute } from "../lib/appShell";
+import { DISCORD_INVITE_URL } from "../lib/discord";
 
 const nav = [
   { to: "/channels", label: "Live chat" },
@@ -54,6 +55,17 @@ export default function Layout({ children }: { children: ReactNode }) {
               <NavItems />
             </nav>
             <div className="ml-auto flex min-w-0 items-center gap-2 text-sm sm:gap-3">
+              <a
+                href={DISCORD_INVITE_URL}
+                target="_blank"
+                rel="noopener"
+                className={`shrink-0 rounded-md bg-[#5865F2] px-3 py-1.5 font-medium text-white hover:bg-[#4752c4] ${
+                  isAuthenticated ? "hidden sm:block" : ""
+                }`}
+              >
+                <span className="sm:hidden">Discord</span>
+                <span className="hidden sm:inline">Join Discord</span>
+              </a>
               {isLoading ? null : isAuthenticated ? (
                 <>
                   <Link to="/settings" className="flex min-w-0 items-center gap-2 text-zinc-300 hover:text-white">
@@ -94,7 +106,11 @@ export default function Layout({ children }: { children: ReactNode }) {
         <>
           <main className="mx-auto w-full max-w-5xl flex-1 px-3 py-4 sm:px-4 sm:py-6">{children}</main>
           <footer className="border-t border-zinc-800 px-4 py-4 text-center text-xs text-zinc-500">
-            A web + email front door to the techfren community.
+            A web + email front door to the techfren community.{" "}
+            <a href={DISCORD_INVITE_URL} target="_blank" rel="noopener" className="text-zinc-400 underline hover:text-white">
+              Join the Discord server
+            </a>
+            .
           </footer>
         </>
       )}

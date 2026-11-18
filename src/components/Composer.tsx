@@ -5,6 +5,7 @@ import { ConvexError } from "convex/values";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { draftStore, useDraft } from "../lib/draftStore";
+import { DISCORD_INVITE_URL } from "../lib/discord";
 
 export default function Composer({ slug }: { slug: string }) {
   const { isAuthenticated } = useConvexAuth();
@@ -19,7 +20,8 @@ export default function Composer({ slug }: { slug: string }) {
   if (!isAuthenticated) {
     return (
       <div className="rounded-lg border border-zinc-800 p-3 text-sm text-zinc-400">
-        <Link to="/signin" className="text-emerald-400 hover:underline">Sign in</Link> to post in #{slug}. Your message will appear in Discord under your name.
+        <Link to="/signin" className="text-emerald-400 hover:underline">Sign in</Link> to post in #{slug} from here (it shows up in Discord under your name), or{" "}
+        <a href={DISCORD_INVITE_URL} target="_blank" rel="noopener" className="text-[#8b95f7] hover:underline">join the Discord server</a>.
       </div>
     );
   }

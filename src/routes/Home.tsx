@@ -1,6 +1,8 @@
+import { Link } from "react-router-dom";
 import DailySummary from "../components/DailySummary";
 import LatestPreview from "../components/LatestPreview";
 import { HOME_TITLE, usePageMeta } from "../lib/head";
+import { DISCORD_INVITE_URL } from "../lib/discord";
 
 // The landing page is a document, not the chat shell. It opens straight into
 // the content: the latest highlights as the wide column's main card, with the
@@ -37,6 +39,35 @@ export default function Home() {
         fetchPriority="high"
         className="aspect-[2/1] w-full rounded-xl border border-zinc-800 object-cover object-left sm:aspect-[3/1] sm:object-center"
       />
+
+      {/* The two ways in, side by side: join the Discord server itself, or use
+          this web app (read freely, sign in to post). Posts sync both ways. */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="flex flex-col gap-2 rounded-lg border border-[#5865F2]/40 bg-[#5865F2]/10 p-3">
+          <h2 className="text-sm font-semibold text-zinc-100">Join on Discord</h2>
+          <p className="flex-1 text-sm text-zinc-400">Voice chats, live streams, the bots, and points you can spend on roles. Free, no approval.</p>
+          <a
+            href={DISCORD_INVITE_URL}
+            target="_blank"
+            rel="noopener"
+            className="self-start rounded-md bg-[#5865F2] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#4752c4]"
+          >
+            Open in Discord
+          </a>
+        </div>
+        <div className="flex flex-col gap-2 rounded-lg border border-zinc-800 p-3">
+          <h2 className="text-sm font-semibold text-zinc-100">Use the web app</h2>
+          <p className="flex-1 text-sm text-zinc-400">No Discord account needed. Read every channel, post from your browser (it shows up in Discord under your name), and get email digests you can reply to.</p>
+          <div className="flex flex-wrap gap-2 text-sm">
+            <Link to="/channels" className="rounded-md border border-zinc-700 px-3 py-1.5 font-medium text-zinc-200 hover:bg-zinc-800">
+              Read live chat
+            </Link>
+            <Link to="/signin" className="rounded-md bg-emerald-500 px-3 py-1.5 font-medium text-zinc-950 hover:bg-emerald-400">
+              Sign in to post
+            </Link>
+          </div>
+        </div>
+      </div>
 
       {/* On phones, show a short window into the live conversation before the
           highlights. At desktop widths both columns stretch together. */}

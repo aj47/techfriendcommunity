@@ -41,7 +41,7 @@ export const bySlug = query({
     }
     return {
       id: c._id, slug: c.slug, name: c.name, topic: c.topic ?? null, messageCount: c.messageCount,
-      isThread: c.isThread ?? false, parent,
+      isThread: c.isThread ?? false, parent, discordChannelId: c.discordChannelId,
     };
   },
 });

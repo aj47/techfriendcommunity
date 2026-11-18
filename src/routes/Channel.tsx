@@ -5,6 +5,7 @@ import { api } from "../../convex/_generated/api";
 import MessageList, { type MessageView } from "../components/MessageList";
 import Composer from "../components/Composer";
 import { pageTitle, usePageMeta } from "../lib/head";
+import { discordChannelUrl } from "../lib/discord";
 
 // One room, as the middle pane of the chat shell: a title bar, the scrollback,
 // and the composer pinned to the bottom. The shell owns the height — this fills
@@ -62,7 +63,18 @@ export default function Channel() {
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-2">
           <h1 className="text-base font-semibold">{label}</h1>
           {channel.topic ? <p className="min-w-0 truncate text-sm text-zinc-500">{channel.topic}</p> : null}
-          <form onSubmit={runSearch} className="ml-auto shrink-0">
+          {/* Members land in this exact channel; anyone not in the server yet
+              gets Discord's own "no access" screen, so the rail and header
+              carry the invite link for them. */}
+          <a
+            href={discordChannelUrl(channel.discordChannelId)}
+            target="_blank"
+            rel="noopener"
+            className="ml-auto shrink-0 rounded-md border border-[#5865F2]/50 px-2.5 py-1 text-xs text-zinc-200 hover:bg-[#5865F2]/20"
+          >
+            Open in Discord
+          </a>
+          <form onSubmit={runSearch} className="shrink-0">
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}

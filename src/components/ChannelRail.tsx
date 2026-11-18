@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { shortAgo } from "../lib/format";
+import { DISCORD_INVITE_URL } from "../lib/discord";
 
 // The rest of the site, parked at the bottom of the rail so the shell doesn't
 // need the header's nav to be reachable — which matters on a phone, where the
@@ -62,6 +63,14 @@ export default function ChannelRail() {
       {/* mt-auto pins these to the bottom when the channel list is short, and
           simply follows it when the list is long enough to scroll. */}
       <div className="mt-auto pt-4">
+        <a
+          href={DISCORD_INVITE_URL}
+          target="_blank"
+          rel="noopener"
+          className="mb-2 block rounded-md bg-[#5865F2] px-2 py-1.5 text-center text-sm font-medium text-white hover:bg-[#4752c4]"
+        >
+          Join the Discord server
+        </a>
         {secondary.map((s) => (
           <NavLink key={s.to} to={s.to} end className={({ isActive }) => itemClass(isActive)}>
             {s.label}

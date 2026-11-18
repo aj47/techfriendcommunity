@@ -2,6 +2,7 @@ import { Navigate } from "react-router-dom";
 import { useConvexAuth } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { pageTitle, usePageMeta } from "../lib/head";
+import { DISCORD_INVITE_URL } from "../lib/discord";
 
 export default function SignIn() {
   const { signIn } = useAuthActions();
@@ -26,6 +27,14 @@ export default function SignIn() {
       <p className="text-xs text-zinc-500">
         Not in the Discord? GitHub works on its own — you can link a Discord account later from Settings.
       </p>
+      <a
+        href={DISCORD_INVITE_URL}
+        target="_blank"
+        rel="noopener"
+        className="block rounded-md border border-[#5865F2]/40 bg-[#5865F2]/10 px-3 py-2 text-center text-sm text-zinc-200 hover:bg-[#5865F2]/20"
+      >
+        Rather chat in the Discord app? Join the server
+      </a>
     </div>
   );
 }
