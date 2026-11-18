@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { useQuery } from "convex/react";
+import { usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { fmtTime } from "../lib/format";
 import MessageBody from "../components/MessageBody";
 import { pageTitle, usePageMeta } from "../lib/head";
+
+// Keep relative date filters stable while the reader pages through results.
+const SEARCH_ANCHOR = Date.now();
 
 // The message search index and query existed well before this page did, with
 // nothing in the UI reaching them — the community was searchable in principle
@@ -13,6 +16,7 @@ export default function Search() {
   const [params, setParams] = useSearchParams();
   const q = params.get("q") ?? "";
   const scope = params.get("channel");
+  const period = params.get("when") === "week" ? "week" : params.get("when") === "month" ? "month" : "all";
   const [input, setInput] = useState(q);
   const [lastQ, setLastQ] = useState(q);
 
@@ -27,18 +31,29 @@ export default function Search() {
   usePageMeta(pageTitle(q ? `Search: ${q}` : "Search"));
 
   const channel = useQuery(api.channels.bySlug, scope ? { slug: scope } : "skip");
+  const channels = useQuery(api.channels.list);
   // Don't fire an unscoped search first and a scoped one a moment later.
   const scopeReady = !scope || channel !== undefined;
-  const results = useQuery(
-    api.messages.search,
-    q.trim() && scopeReady ? { query: q, channelId: channel?.id, limit: 30 } : "skip",
+  const since = period === "all" ? undefined : SEARCH_ANCHOR - (period === "week" ? 7 : 30) * 86400000;
+  const { results, status, loadMore } = usePaginatedQuery(
+    api.messages.searchPage,
+    q.trim() && scopeReady && channel !== null ? { query: q, channelId: channel?.id, since } : "skip",
+    { initialNumItems: 20 },
   );
+
+  const updateFilter = (key: string, value: string) => {
+    const next = new URLSearchParams(params);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    setParams(next, { replace: true });
+  };
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const next: Record<string, string> = {};
     if (input.trim()) next.q = input.trim();
     if (scope) next.channel = scope;
+    if (period !== "all") next.when = period;
     setParams(next, { replace: true });
   };
 
@@ -60,13 +75,40 @@ export default function Search() {
         </button>
       </form>
 
+      <div className="flex flex-wrap gap-2">
+        <label className="flex items-center gap-2 text-xs text-zinc-400">
+          Channel
+          <select
+            value={scope ?? ""}
+            onChange={(e) => updateFilter("channel", e.target.value)}
+            className="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-200"
+          >
+            <option value="">All channels</option>
+            {channels?.map((c) => <option key={c.id} value={c.slug}>#{c.name}</option>)}
+            {scope && !channels?.some((c) => c.slug === scope) ? <option value={scope}>#{scope}</option> : null}
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-xs text-zinc-400">
+          Posted
+          <select
+            value={period}
+            onChange={(e) => updateFilter("when", e.target.value === "all" ? "" : e.target.value)}
+            className="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-200"
+          >
+            <option value="all">Any time</option>
+            <option value="week">Past 7 days</option>
+            <option value="month">Past 30 days</option>
+          </select>
+        </label>
+      </div>
+
       {scope ? (
         <p className="flex flex-wrap items-center gap-2 text-sm text-zinc-400">
           <span>
             Only in <span className="text-emerald-400">#{channel?.name ?? scope}</span>
           </span>
           <Link
-            to={`/search?q=${encodeURIComponent(q)}`}
+            to={`/search?q=${encodeURIComponent(q)}${period === "all" ? "" : `&when=${period}`}`}
             className="rounded border border-zinc-700 px-2 py-0.5 text-xs hover:bg-zinc-800"
           >
             Search everywhere
@@ -76,7 +118,9 @@ export default function Search() {
 
       {!q.trim() ? (
         <p className="text-zinc-500">Type something to search the community's history.</p>
-      ) : results === undefined ? (
+      ) : scope && channel === null ? (
+        <p className="text-zinc-500">That channel is no longer available. Search everywhere instead.</p>
+      ) : !scopeReady || status === "LoadingFirstPage" ? (
         <p className="text-zinc-500">Searching…</p>
       ) : results.length === 0 ? (
         <p className="text-zinc-500">
@@ -85,7 +129,7 @@ export default function Search() {
       ) : (
         <>
           <p className="text-xs uppercase tracking-wide text-zinc-500">
-            {results.length} {results.length === 1 ? "match" : "matches"}
+            {results.length} {results.length === 1 ? "result" : "results"} shown{status === "Exhausted" ? "" : " so far"}
           </p>
           <ul className="divide-y divide-zinc-800 overflow-hidden rounded-xl border border-zinc-800">
             {results.map((m) => (
@@ -106,6 +150,16 @@ export default function Search() {
               </li>
             ))}
           </ul>
+          {status === "CanLoadMore" || status === "LoadingMore" ? (
+            <button
+              type="button"
+              onClick={() => loadMore(20)}
+              disabled={status === "LoadingMore"}
+              className="mx-auto block rounded-md border border-zinc-700 px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-800 disabled:cursor-wait disabled:opacity-60"
+            >
+              {status === "LoadingMore" ? "Loading more…" : "Load more results"}
+            </button>
+          ) : null}
         </>
       )}
     </div>

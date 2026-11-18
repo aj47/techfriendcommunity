@@ -6,6 +6,7 @@ import { agentmail } from "./email";
 import { serveStatic } from "./staticSite";
 import { gifRedirect } from "./gif";
 import { ogImage } from "./og/image";
+import { collectVital } from "./vitals";
 
 const http = httpRouter();
 
@@ -13,6 +14,7 @@ auth.addHttpRoutes(http);
 
 // Discord bot bridge → Convex (bearer BRIDGE_SECRET).
 http.route({ path: "/discord/ingest", method: "POST", handler: ingest });
+http.route({ path: "/api/vitals", method: "POST", handler: collectVital });
 
 // AgentMail inbound mail (Svix-verified by the component).
 // Cast: installed convex adds an options param to runMutation that the

@@ -7,6 +7,7 @@
 // a signed-out visitor can't already see).
 import { v } from "convex/values";
 import { internalQuery, type QueryCtx } from "../_generated/server";
+import { topStandings } from "../points";
 
 export const kindValidator = v.union(
   v.literal("home"),
@@ -43,7 +44,7 @@ export type CardData = {
   channel?: { name: string; topic: string | null; messageCount: number; isThread: boolean };
   messages?: CardMessage[];
   recap?: { date: string; channel: string; text: string; messages: number; people: number };
-  leaders?: { rank: number; name: string; alias?: string | null; points: number }[];
+  leaders?: { rank: number; name: string; alias?: string | null; lifetimePoints: number }[];
   resources?: { title: string; site: string }[];
   query?: string;
   results?: number;
@@ -196,23 +197,17 @@ export const card = internalQuery({
     }
 
     if (kind === "leaderboard") {
-      const rows = await ctx.db.query("leaderboard_mirror").withIndex("by_points").order("desc").take(3);
-      const leaders = [];
-      for (const [i, r] of rows.entries()) {
+      // Same ranking as the page: all-time earned, with the balance alongside.
+      const ranked = await topStandings(ctx, 3);
+      const leaders = ranked.map((s) => ({
+        rank: s.rank,
+        name: s.name,
         // The mirror carries the Discord display name, which can be entirely
         // emoji or a script the card has no glyphs for. Where the member has
         // claimed their web account, their handle is a name we can draw.
-        const user = await ctx.db
-          .query("users")
-          .withIndex("by_discordUserId", (q) => q.eq("discordUserId", r.discordUserId))
-          .unique();
-        leaders.push({
-          rank: i + 1,
-          name: r.name,
-          alias: user?.handle ?? user?.displayName ?? null,
-          points: r.points,
-        });
-      }
+        alias: s.user?.handle ?? s.user?.displayName ?? null,
+        lifetimePoints: s.lifetimePoints,
+      }));
       return { ...base, leaders };
     }
 

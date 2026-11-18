@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { query, type MutationCtx } from "./_generated/server";
+import { query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { type Doc } from "./_generated/dataModel";
 import { publicUser } from "./lib/requireUser";
 
 // This app does not score anything.
@@ -90,6 +91,73 @@ export async function syncMirror(ctx: MutationCtx, rows: MirrorRow[], complete?:
   return { synced: rows.length, pruned: true as const, prunedCount };
 }
 
+// Standings rank on what a member has earned all-time, never on what is left in
+// their wallet. Ranking on the balance demotes whoever spends points, and since
+// only a fifth of the points ever awarded have been spent, that is precisely the
+// behaviour the economy does not need rewarded. The balance travels alongside so
+// the board can show both.
+export type Standing = {
+  rank: number;
+  name: string;
+  discordUserId: string;
+  points: number;
+  lifetimePoints: number;
+  spent: number;
+  user: Doc<"users"> | null;
+};
+
+type RankedRow = {
+  row: Doc<"leaderboard_mirror">;
+  lifetimePoints: number;
+  spent: number;
+};
+
+// Ties break on the balance, then on the name, so the order is stable rather
+// than whatever the table happens to return first.
+function byAllTime(a: RankedRow, b: RankedRow) {
+  return (
+    b.lifetimePoints - a.lifetimePoints ||
+    b.row.points - a.row.points ||
+    a.row.name.localeCompare(b.row.name)
+  );
+}
+
+async function rankRows(ctx: QueryCtx) {
+  const rows = await ctx.db.query("leaderboard_mirror").collect();
+  return rows
+    .map((row) => {
+      const lifetimePoints = Math.max(row.lifetimePoints ?? 0, row.points);
+      return { row, lifetimePoints, spent: lifetimePoints - row.points };
+    })
+    .sort(byAllTime);
+}
+
+async function standingsFrom(ctx: QueryCtx, ranked: RankedRow[]) {
+  const out: Standing[] = [];
+  for (const [i, entry] of ranked.entries()) {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_discordUserId", (q) => q.eq("discordUserId", entry.row.discordUserId))
+      .unique();
+    out.push({
+      rank: i + 1,
+      name: entry.row.name,
+      discordUserId: entry.row.discordUserId,
+      points: entry.row.points,
+      lifetimePoints: entry.lifetimePoints,
+      spent: entry.spent,
+      user: user ?? null,
+    });
+  }
+  return out;
+}
+
+// The top `n` members by all-time points. Shared with the share card so the
+// card and the page can never disagree about who is on top.
+export async function topStandings(ctx: QueryCtx, n: number): Promise<Standing[]> {
+  return standingsFrom(ctx, (await rankRows(ctx)).slice(0, n));
+}
+
 // The community leaderboard, exactly as the Discord bot scores it. Where a
 // member has claimed their account via `!link`, their web profile is attached
 // so the row renders with their handle and avatar.
@@ -97,32 +165,40 @@ export const leaderboard = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, { limit }) => {
     const n = Math.min(Math.max(limit ?? 20, 1), 100);
-    const rows = await ctx.db
-      .query("leaderboard_mirror")
-      .withIndex("by_points")
-      .order("desc")
-      .take(n);
+    const ranked = await topStandings(ctx, n);
 
-    const out = [];
-    for (const [i, row] of rows.entries()) {
-      const user = await ctx.db
-        .query("users")
-        .withIndex("by_discordUserId", (q) => q.eq("discordUserId", row.discordUserId))
-        .unique();
-      const lifetimePoints = Math.max(row.lifetimePoints ?? 0, row.points);
-      out.push({
-        rank: i + 1,
-        points: row.points,
-        // What they have earned in total, and how much of it they have spent
-        // in Discord. Ranking still follows the balance, as the bot's own
-        // /leaderboard does.
-        lifetimePoints,
-        spent: lifetimePoints - row.points,
-        name: row.name,
-        user: user ? publicUser(user) : null,
-      });
-    }
-    return out;
+    return ranked.map((s) => ({
+      rank: s.rank,
+      points: s.points,
+      lifetimePoints: s.lifetimePoints,
+      spent: s.spent,
+      name: s.name,
+      user: s.user ? publicUser(s.user) : null,
+    }));
+  },
+});
+
+// Who has actually spent their points. The board above rewards earning; this
+// one is the other half of the economy, and it is the number that tells the
+// community its points are worth something.
+export const topSpenders = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit }) => {
+    const n = Math.min(Math.max(limit ?? 10, 1), 100);
+    const spenders = (await rankRows(ctx))
+      .filter((entry) => entry.spent > 0)
+      .sort((a, b) => b.spent - a.spent || byAllTime(a, b))
+      .slice(0, n);
+
+    const ranked = await standingsFrom(ctx, spenders);
+    return ranked.map((s) => ({
+      rank: s.rank,
+      points: s.points,
+      lifetimePoints: s.lifetimePoints,
+      spent: s.spent,
+      name: s.name,
+      user: s.user ? publicUser(s.user) : null,
+    }));
   },
 });
 

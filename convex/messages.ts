@@ -167,6 +167,37 @@ export const search = query({
   },
 });
 
+export const searchPage = query({
+  args: {
+    query: v.string(),
+    channelId: v.optional(v.id("channels")),
+    since: v.optional(v.number()),
+    paginationOpts: paginationOptsValidator,
+  },
+  handler: async (ctx, { query: text, channelId, since, paginationOpts }) => {
+    let search = ctx.db.query("messages")
+      .withSearchIndex("search_content", (s) => {
+        const base = s.search("content", text.trim());
+        return channelId ? base.eq("channelId", channelId) : base;
+      })
+      .filter((q) => q.eq(q.field("hiddenAt"), undefined));
+    if (since !== undefined) {
+      search = search.filter((q) => q.gte(q.field("createdAt"), since));
+    }
+    const page = await search.paginate(paginationOpts);
+    const channels = new Map<string, { slug: string; name: string } | null>();
+    const rendered = [];
+    for (const m of page.page) {
+      if (!channels.has(m.channelId)) {
+        const c = await ctx.db.get(m.channelId);
+        channels.set(m.channelId, c ? { slug: c.slug, name: c.name } : null);
+      }
+      rendered.push({ ...(await view(ctx, m)), channel: channels.get(m.channelId) ?? null });
+    }
+    return { ...page, page: rendered };
+  },
+});
+
 async function bumpChannel(ctx: MutationCtx, channelId: Id<"channels">, at: number) {
   const c = await ctx.db.get(channelId);
   if (!c) return;

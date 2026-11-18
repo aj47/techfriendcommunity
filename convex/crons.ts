@@ -11,5 +11,6 @@ crons.weekly("weekly channel digests", { dayOfWeek: "monday", hourUTC: 14, minut
 // above and the bot's 00:00 UTC daily summarisation.
 crons.daily("message retention sweep", { hourUTC: 9, minuteUTC: 0 }, internal.retention.enforceRetention, {});
 crons.daily("processed email sweep", { hourUTC: 9, minuteUTC: 30 }, internal.retention.sweepProcessedEmails, {});
+crons.daily("vitals sample sweep", { hourUTC: 10, minuteUTC: 0 }, internal.vitals.sweep, {});
 
 export default crons;
