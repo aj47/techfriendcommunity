@@ -59,9 +59,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                 href={DISCORD_INVITE_URL}
                 target="_blank"
                 rel="noopener"
-                className={`shrink-0 rounded-md bg-[#5865F2] px-3 py-1.5 font-medium text-white hover:bg-[#4752c4] ${
-                  isAuthenticated ? "hidden sm:block" : ""
-                }`}
+                className="shrink-0 rounded-md bg-[#5865F2] px-3 py-1.5 font-medium text-white hover:bg-[#4752c4]"
               >
                 <span className="sm:hidden">Discord</span>
                 <span className="hidden sm:inline">Join Discord</span>
